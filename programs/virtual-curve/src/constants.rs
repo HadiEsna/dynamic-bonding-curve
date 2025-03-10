@@ -14,6 +14,8 @@ pub const U24_MAX: u32 = 0xffffff;
 
 pub const MAX_CURVE_POINT: usize = 20;
 
+pub const MAX_TOKEN_SUPPLY: u64 = 10_000_000_000; // 10 billion
+
 pub mod activation {
     #[cfg(not(feature = "local"))]
     pub const SLOT_BUFFER: u64 = 9000; // 1 slot = 400 mls => 1 hour
@@ -75,9 +77,9 @@ pub mod fee {
         MIN_FEE_NUMERATOR
     );
 
-    pub const CUSTOMIZABLE_PROTOCOL_FEE_PERCENT: u8 = 20; // 20%
+    pub const PROTOCOL_FEE_PERCENT: u8 = 20; // 20%
 
-    pub const CUSTOMIZABLE_HOST_FEE_PERCENT: u8 = 20; // 20%
+    pub const HOST_FEE_PERCENT: u8 = 20; // 20%
 
     pub const MEME_MIN_FEE_UPDATE_WINDOW_DURATION: i64 = 60 * 30; // 30 minutes
 }
@@ -111,3 +113,4 @@ pub mod meteora_damm_config {
 const SOL: Pubkey = pubkey!("So11111111111111111111111111111111111111112");
 const USDC: Pubkey = pubkey!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 pub const DEFAULT_QUOTE_MINTS: [Pubkey; 2] = [SOL, USDC];
+pub const DEFAULT_QUOTE_THRESHOLD: [u64; 2] = [500_000_000_000, 50_000_000_000]; // 500 SOL and 50k USDC

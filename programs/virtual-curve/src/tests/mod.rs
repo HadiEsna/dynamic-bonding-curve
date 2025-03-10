@@ -1,14 +1,5 @@
 #[cfg(test)]
-pub const LIQUIDITY_MAX: u128 = 34028236692093846346337460743;
-
-#[cfg(test)]
-mod swap_tests;
-
-#[cfg(test)]
-mod dynamic_fee_tests;
-
-#[cfg(test)]
 mod price_math;
 
 #[cfg(test)]
-mod fee_scheduler_tests;
+mod test_create_config;

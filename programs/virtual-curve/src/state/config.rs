@@ -3,12 +3,14 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use static_assertions::const_assert_eq;
 
 use crate::{
-    constants::{MAX_CURVE_POINT, MAX_SQRT_PRICE},
+    constants::{MAX_CURVE_POINT, MAX_SQRT_PRICE, MAX_TOKEN_SUPPLY},
     params::{
         fee_parameters::{BaseFeeParameters, DynamicFeeParameters, PoolFeeParamters},
         liquidity_distribution::LiquidityDistributionParameters,
     },
+    safe_math::SafeMath,
     state::fee::{BaseFeeStruct, DynamicFeeStruct, PoolFeesStruct},
+    PoolError,
 };
 
 #[zero_copy]
@@ -65,8 +67,8 @@ impl PoolFeesConfig {
     pub fn to_pool_fee_parameters(&self) -> PoolFeeParamters {
         let &PoolFeesConfig {
             base_fee,
-            protocol_fee_percent,
-            referral_fee_percent,
+            protocol_fee_percent: _protocol_fee_percent,
+            referral_fee_percent: _referral_fee_percent,
             dynamic_fee:
                 DynamicFeeConfig {
                     initialized,
@@ -84,8 +86,6 @@ impl PoolFeesConfig {
         if initialized == 1 {
             PoolFeeParamters {
                 base_fee: base_fee.to_base_fee_parameters(),
-                protocol_fee_percent,
-                referral_fee_percent,
                 dynamic_fee: Some(DynamicFeeParameters {
                     bin_step,
                     bin_step_u128,
@@ -99,8 +99,6 @@ impl PoolFeesConfig {
         } else {
             PoolFeeParamters {
                 base_fee: base_fee.to_base_fee_parameters(),
-                protocol_fee_percent,
-                referral_fee_percent,
                 ..Default::default()
             }
         }
@@ -175,6 +173,22 @@ pub enum MigrationOption {
     MeteoraDamm,
 }
 
+#[repr(u8)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    IntoPrimitive,
+    TryFromPrimitive,
+    AnchorDeserialize,
+    AnchorSerialize,
+)]
+pub enum TokenType {
+    SplToken,
+    Token2022,
+}
+
 #[account(zero_copy)]
 #[derive(InitSpace, Debug)]
 pub struct Config {
@@ -194,12 +208,16 @@ pub struct Config {
     pub activation_type: u8,
     /// token decimals
     pub token_decimal: u8,
+    /// token type
+    pub token_type: u8,
     /// padding 0
-    pub _padding_0: [u8; 4],
-    /// total supply
-    pub total_supply: u64,
-    /// migration threshold (in quote token)
-    pub migration_threshold: u64,
+    pub _padding_0: [u8; 3],
+    /// swap base amount
+    pub swap_base_amount: u64,
+    /// migration quote threshold (in quote token)
+    pub migration_quote_threshold: u64,
+    /// migration base threshold (in base token)
+    pub migration_base_threshold: u64,
     /// padding
     pub padding: [u128; 8],
     /// minimum price
@@ -254,8 +272,10 @@ impl Config {
         migration_option: u8,
         activation_type: u8,
         token_decimal: u8,
-        total_supply: u64,
-        migration_threshold: u64,
+        token_type: u8,
+        swap_base_amount: u64,
+        migration_quote_threshold: u64,
+        migration_base_threshold: u64,
         sqrt_start_price: u128,
         curve: &Vec<LiquidityDistributionParameters>,
     ) {
@@ -267,9 +287,11 @@ impl Config {
         self.migration_option = migration_option;
         self.activation_type = activation_type;
         self.token_decimal = token_decimal;
-        self.total_supply = total_supply;
-        self.migration_threshold = migration_threshold;
+        self.swap_base_amount = swap_base_amount;
+        self.migration_quote_threshold = migration_quote_threshold;
+        self.migration_base_threshold = migration_base_threshold;
         self.sqrt_start_price = sqrt_start_price;
+        self.token_type = token_type;
 
         let curve_length = curve.len();
         for i in 0..MAX_CURVE_POINT {
@@ -282,5 +304,21 @@ impl Config {
                 }
             }
         }
+    }
+
+    pub fn get_initial_base_supply(&self) -> Result<u64> {
+        let total_amount = self
+            .migration_base_threshold
+            .safe_add(self.swap_base_amount)?;
+        // add 25%
+        let max_amount = 5u128.safe_mul(total_amount.into())?.safe_div(4)?;
+
+        let max_supply = 10u128
+            .pow(self.token_decimal.into())
+            .safe_mul(MAX_TOKEN_SUPPLY.into())?;
+
+        let min_amount = max_amount.min(max_supply);
+
+        Ok(u64::try_from(min_amount).map_err(|_| PoolError::MathOverflow)?)
     }
 }

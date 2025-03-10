@@ -319,4 +319,16 @@ pub enum PoolError {
 
     #[msg("Invalid migration option")]
     InvalidMigrationOption,
+
+    #[msg("Invalid activation type")]
+    InvalidTokenDecimals,
+
+    #[msg("Invalid token type")]
+    InvalidTokenType,
+
+    #[msg("Invalid quote threshold")]
+    InvalidQuoteThreshold,
+
+    #[msg("Invalid curve")]
+    InvalidCurve,
 }

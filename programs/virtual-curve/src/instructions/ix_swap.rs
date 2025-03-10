@@ -128,7 +128,7 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
 
     // validate if it is over threshold
     require!(
-        !pool.is_curve_complete(config.migration_threshold),
+        !pool.is_curve_complete(config.migration_quote_threshold),
         PoolError::PoolIsCompleted
     );
 
@@ -218,7 +218,7 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
         current_timestamp,
     });
 
-    if pool.is_curve_complete(config.migration_threshold) {
+    if pool.is_curve_complete(config.migration_quote_threshold) {
         emit_cpi!(EvtCurveComplete {
             pool: ctx.accounts.pool.key(),
             config: ctx.accounts.config.key(),

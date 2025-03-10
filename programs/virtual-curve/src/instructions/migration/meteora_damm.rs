@@ -1,9 +1,10 @@
-use anchor_spl::token::{Token, TokenAccount};
+use anchor_spl::token::{Burn, Token, TokenAccount};
 use solana_program::{program::invoke, system_instruction};
 
 use crate::{
     activation_handler::get_current_point,
     constants::{meteora_damm_config, seeds::POOL_AUTHORITY_PREFIX},
+    safe_math::SafeMath,
     state::{Config, MigrationOption, Pool},
     *,
 };
@@ -187,7 +188,7 @@ pub fn handle_migrate_to_meteora_damm<'info>(
 
     let config = ctx.accounts.config.load()?;
     require!(
-        virtual_pool.is_curve_complete(config.migration_threshold),
+        virtual_pool.is_curve_complete(config.migration_quote_threshold),
         PoolError::PoolIsIncompleted
     );
 
@@ -198,14 +199,35 @@ pub fn handle_migrate_to_meteora_damm<'info>(
         PoolError::InvalidMigrationOption
     );
 
+    let base_reserve = config.migration_base_threshold;
+    let quote_reserve = config.migration_quote_threshold;
+
     ctx.accounts.create_pool(
-        virtual_pool.base_reserve,
-        virtual_pool.quote_reserve,
+        base_reserve,
+        quote_reserve,
         Some(get_current_point(config.activation_type)?),
         ctx.bumps.pool_authority,
     )?;
 
     virtual_pool.update_after_create_pool();
+
+    // burn the rest of token in pool authority
+    let left_base_token = ctx.accounts.base_vault.amount.safe_sub(base_reserve)?;
+    if left_base_token > 0 {
+        let seeds = pool_authority_seeds!(ctx.bumps.pool_authority);
+        anchor_spl::token::burn(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                Burn {
+                    mint: ctx.accounts.token_a_mint.to_account_info(),
+                    from: ctx.accounts.base_vault.to_account_info(),
+                    authority: ctx.accounts.pool_authority.to_account_info(),
+                },
+                &[&seeds[..]],
+            ),
+            left_base_token,
+        )?;
+    }
 
     // TODO emit event
 

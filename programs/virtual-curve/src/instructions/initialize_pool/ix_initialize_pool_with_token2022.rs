@@ -1,8 +1,9 @@
 use crate::{
     activation_handler::get_current_point,
     constants::seeds::{POOL_AUTHORITY_PREFIX, POOL_PREFIX, TOKEN_VAULT_PREFIX},
-    state::{Config, Pool, PoolType},
+    state::{Config, Pool, PoolType, TokenType},
     token::create_position_base_mint_with_extensions,
+    EvtInitializePool, PoolError,
 };
 use anchor_lang::{
     prelude::*,
@@ -105,6 +106,14 @@ pub fn handle_initialize_pool_with_token2022<'c: 'info, 'info>(
     ctx: Context<'_, '_, 'c, 'info, InitializePoolWithToken2022Ctx<'info>>,
     params: InitializePoolParameters,
 ) -> Result<()> {
+    let config = ctx.accounts.config.load()?;
+    let token_type_value =
+        TokenType::try_from(config.token_type).map_err(|_| PoolError::InvalidTokenType)?;
+    require!(
+        token_type_value == TokenType::Token2022,
+        PoolError::InvalidTokenType
+    );
+
     let InitializePoolParameters { name, symbol, uri } = params;
 
     // create mint
@@ -165,7 +174,7 @@ pub fn handle_initialize_pool_with_token2022<'c: 'info, 'info>(
             },
             &[&seeds[..]],
         ),
-        config.total_supply,
+        config.get_initial_base_supply()?,
     )?;
 
     // init pool
@@ -185,6 +194,13 @@ pub fn handle_initialize_pool_with_token2022<'c: 'info, 'info>(
         activation_point,
     );
 
-    // TODO emit event
+    emit_cpi!(EvtInitializePool {
+        pool: ctx.accounts.pool.key(),
+        config: ctx.accounts.config.key(),
+        creator: ctx.accounts.creator.key(),
+        base_mint: ctx.accounts.base_mint.key(),
+        pool_type: PoolType::Token2022.into(),
+        activation_point,
+    });
     Ok(())
 }

@@ -11,8 +11,8 @@ use crate::{
     activation_handler::get_current_point,
     constants::seeds::{POOL_AUTHORITY_PREFIX, POOL_PREFIX, TOKEN_VAULT_PREFIX},
     process_create_token_metadata,
-    state::{Config, Pool, PoolType},
-    ProcessCreateTokenMetadataParams,
+    state::{Config, Pool, PoolType, TokenType},
+    EvtInitializePool, PoolError, ProcessCreateTokenMetadataParams,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -127,6 +127,14 @@ pub fn handle_initialize_pool_with_spl_token<'c: 'info, 'info>(
     ctx: Context<'_, '_, 'c, 'info, InitializePoolWithSplTokenCtx<'info>>,
     params: InitializePoolParameters,
 ) -> Result<()> {
+    let config = ctx.accounts.config.load()?;
+    let token_type_value =
+        TokenType::try_from(config.token_type).map_err(|_| PoolError::InvalidTokenType)?;
+    require!(
+        token_type_value == TokenType::SplToken,
+        PoolError::InvalidTokenType
+    );
+
     let InitializePoolParameters { name, symbol, uri } = params;
 
     // create token metadata
@@ -143,8 +151,6 @@ pub fn handle_initialize_pool_with_spl_token<'c: 'info, 'info>(
         pool_authority_bump: ctx.bumps.pool_authority,
     })?;
 
-    let config = ctx.accounts.config.load()?;
-
     // mint token
     let seeds = pool_authority_seeds!(ctx.bumps.pool_authority);
     anchor_spl::token::mint_to(
@@ -157,7 +163,7 @@ pub fn handle_initialize_pool_with_spl_token<'c: 'info, 'info>(
             },
             &[&seeds[..]],
         ),
-        config.total_supply,
+        config.get_initial_base_supply()?,
     )?;
 
     // init pool
@@ -177,6 +183,13 @@ pub fn handle_initialize_pool_with_spl_token<'c: 'info, 'info>(
         activation_point,
     );
 
-    // TODO emit event
+    emit_cpi!(EvtInitializePool {
+        pool: ctx.accounts.pool.key(),
+        config: ctx.accounts.config.key(),
+        creator: ctx.accounts.creator.key(),
+        base_mint: ctx.accounts.base_mint.key(),
+        pool_type: PoolType::SplToken.into(),
+        activation_point,
+    });
     Ok(())
 }
