@@ -85,3 +85,8 @@ pub struct EvtClaimTradingFee {
     pub token_base_amount: u64,
     pub token_quote_amount: u64,
 }
+
+#[event]
+pub struct EvtCreateMeteoraMigrationMetadata {
+    pub virtual_pool: Pubkey,
+}

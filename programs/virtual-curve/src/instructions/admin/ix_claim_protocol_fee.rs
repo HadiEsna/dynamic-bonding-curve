@@ -3,7 +3,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     constants::seeds::POOL_AUTHORITY_PREFIX,
-    state::{ClaimFeeOperator, Config, Pool},
+    state::{ClaimFeeOperator, Config, VirtualPool},
     token::transfer_from_pool,
     treasury, EvtClaimProtocolFee,
 };
@@ -20,7 +20,7 @@ pub struct ClaimProtocolFeesCtx<'info> {
     pub config: AccountLoader<'info, Config>,
 
     #[account(mut, has_one = base_vault, has_one = quote_vault, has_one = base_mint, has_one = config)]
-    pub pool: AccountLoader<'info, Pool>,
+    pub pool: AccountLoader<'info, VirtualPool>,
 
     /// The vault token account for input token
     #[account(mut, token::token_program = token_base_program, token::mint = base_mint)]

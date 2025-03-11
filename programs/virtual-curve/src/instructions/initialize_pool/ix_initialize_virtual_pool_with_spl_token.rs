@@ -11,7 +11,7 @@ use crate::{
     activation_handler::get_current_point,
     constants::seeds::{POOL_AUTHORITY_PREFIX, POOL_PREFIX, TOKEN_VAULT_PREFIX},
     process_create_token_metadata,
-    state::{Config, Pool, PoolType, TokenType},
+    state::{Config, PoolType, TokenType, VirtualPool},
     EvtInitializePool, PoolError, ProcessCreateTokenMetadataParams,
 };
 
@@ -24,7 +24,7 @@ pub struct InitializePoolParameters {
 
 #[event_cpi]
 #[derive(Accounts)]
-pub struct InitializePoolWithSplTokenCtx<'info> {
+pub struct InitializeVirtualPoolWithSplTokenCtx<'info> {
     /// Which config the pool belongs to.
     #[account(has_one = quote_mint)]
     pub config: AccountLoader<'info, Config>,
@@ -54,9 +54,9 @@ pub struct InitializePoolWithSplTokenCtx<'info> {
         ],
         bump,
         payer = payer,
-        space = 8 + Pool::INIT_SPACE
+        space = 8 + VirtualPool::INIT_SPACE
     )]
-    pub pool: AccountLoader<'info, Pool>,
+    pub pool: AccountLoader<'info, VirtualPool>,
 
     /// CHECK: Pool creator
     pub creator: UncheckedAccount<'info>,
@@ -123,8 +123,8 @@ pub struct InitializePoolWithSplTokenCtx<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_initialize_pool_with_spl_token<'c: 'info, 'info>(
-    ctx: Context<'_, '_, 'c, 'info, InitializePoolWithSplTokenCtx<'info>>,
+pub fn handle_initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
+    ctx: Context<'_, '_, 'c, 'info, InitializeVirtualPoolWithSplTokenCtx<'info>>,
     params: InitializePoolParameters,
 ) -> Result<()> {
     let config = ctx.accounts.config.load()?;

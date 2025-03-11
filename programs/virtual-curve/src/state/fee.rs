@@ -74,7 +74,7 @@ pub struct PoolFeesStruct {
     pub padding_1: [u64; 2],
 }
 
-// const_assert_eq!(PoolFeesStruct::INIT_SPACE, 160);
+const_assert_eq!(PoolFeesStruct::INIT_SPACE, 160);
 
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]

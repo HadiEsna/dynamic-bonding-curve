@@ -5,15 +5,21 @@ use crate::{
     activation_handler::get_current_point,
     constants::{meteora_damm_config, seeds::POOL_AUTHORITY_PREFIX},
     safe_math::SafeMath,
-    state::{Config, MigrationOption, Pool},
+    state::{
+        Config, MeteoraDammMigrationMetadata, MigrationMeteoraDammProgress, MigrationOption,
+        VirtualPool,
+    },
     *,
 };
 
 #[derive(Accounts)]
-pub struct MigrateToMeteoraDammCtx<'info> {
-    /// presale
+pub struct MigrateMeteoraDammCtx<'info> {
+    /// virtual pool
     #[account(mut, has_one = base_vault, has_one = quote_vault, has_one = config)]
-    pub virtual_pool: AccountLoader<'info, Pool>,
+    pub virtual_pool: AccountLoader<'info, VirtualPool>,
+
+    #[account(mut, has_one = virtual_pool)]
+    pub migration_metadata: AccountLoader<'info, MeteoraDammMigrationMetadata>,
 
     pub config: AccountLoader<'info, Config>,
 
@@ -112,7 +118,7 @@ pub struct MigrateToMeteoraDammCtx<'info> {
     pub system_program: Program<'info, System>,
 }
 
-impl<'info> MigrateToMeteoraDammCtx<'info> {
+impl<'info> MigrateMeteoraDammCtx<'info> {
     fn create_pool(
         &self,
         initial_base_amount: u64,
@@ -181,9 +187,18 @@ impl<'info> MigrateToMeteoraDammCtx<'info> {
     }
 }
 
-pub fn handle_migrate_to_meteora_damm<'info>(
-    ctx: Context<'_, '_, '_, 'info, MigrateToMeteoraDammCtx<'info>>,
+pub fn handle_migrate_meteora_damm<'info>(
+    ctx: Context<'_, '_, '_, 'info, MigrateMeteoraDammCtx<'info>>,
 ) -> Result<()> {
+    let mut migration_metadata = ctx.accounts.migration_metadata.load_mut()?;
+    let migration_progress = MigrationMeteoraDammProgress::try_from(migration_metadata.progress)
+        .map_err(|_| PoolError::TypeCastFailed)?;
+
+    require!(
+        migration_progress == MigrationMeteoraDammProgress::Init,
+        PoolError::NotPermitToDoThisAction
+    );
+
     let mut virtual_pool = ctx.accounts.virtual_pool.load_mut()?;
 
     let config = ctx.accounts.config.load()?;
@@ -228,6 +243,11 @@ pub fn handle_migrate_to_meteora_damm<'info>(
             left_base_token,
         )?;
     }
+
+    let lp_minted_amount = anchor_spl::token::accessor::amount(&ctx.accounts.virtual_pool_lp)?;
+
+    migration_metadata.set_lp_minted(ctx.accounts.lp_mint.key(), lp_minted_amount);
+    migration_metadata.set_progress(MigrationMeteoraDammProgress::CreatedPool.into());
 
     // TODO emit event
 

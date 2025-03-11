@@ -1,7 +1,7 @@
 use crate::{
     activation_handler::get_current_point,
     constants::seeds::{POOL_AUTHORITY_PREFIX, POOL_PREFIX, TOKEN_VAULT_PREFIX},
-    state::{Config, Pool, PoolType, TokenType},
+    state::{Config, PoolType, TokenType, VirtualPool},
     token::create_position_base_mint_with_extensions,
     EvtInitializePool, PoolError,
 };
@@ -20,7 +20,7 @@ use super::InitializePoolParameters;
 
 #[event_cpi]
 #[derive(Accounts)]
-pub struct InitializePoolWithToken2022Ctx<'info> {
+pub struct InitializeVirtualPoolWithToken2022Ctx<'info> {
     /// Which config the pool belongs to.
     #[account(has_one = quote_mint)]
     pub config: AccountLoader<'info, Config>,
@@ -45,9 +45,9 @@ pub struct InitializePoolWithToken2022Ctx<'info> {
         ],
         bump,
         payer = payer,
-        space = 8 + Pool::INIT_SPACE
+        space = 8 + VirtualPool::INIT_SPACE
     )]
-    pub pool: AccountLoader<'info, Pool>,
+    pub pool: AccountLoader<'info, VirtualPool>,
 
     /// CHECK: Pool creator
     pub creator: UncheckedAccount<'info>,
@@ -102,8 +102,8 @@ pub struct InitializePoolWithToken2022Ctx<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_initialize_pool_with_token2022<'c: 'info, 'info>(
-    ctx: Context<'_, '_, 'c, 'info, InitializePoolWithToken2022Ctx<'info>>,
+pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
+    ctx: Context<'_, '_, 'c, 'info, InitializeVirtualPoolWithToken2022Ctx<'info>>,
     params: InitializePoolParameters,
 ) -> Result<()> {
     let config = ctx.accounts.config.load()?;

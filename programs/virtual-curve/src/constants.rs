@@ -95,6 +95,7 @@ pub mod seeds {
     pub const TOKEN_BADGE_PREFIX: &[u8] = b"token_badge";
     pub const REWARD_VAULT_PREFIX: &[u8] = b"reward_vault";
     pub const CLAIM_FEE_OPERATOR_PREFIX: &[u8] = b"cf_operator";
+    pub const METEORA_METADATA_PREFIX: &[u8] = b"meteora";
 }
 
 pub mod treasury {

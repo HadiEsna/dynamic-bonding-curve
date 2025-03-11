@@ -6,7 +6,7 @@ use crate::{
     activation_handler::get_current_point,
     constants::seeds::POOL_AUTHORITY_PREFIX,
     params::swap::TradeDirection,
-    state::{CollectFeeMode, Config, Pool},
+    state::{CollectFeeMode, Config, VirtualPool},
     token::{calculate_transfer_fee_excluded_amount, transfer_from_pool, transfer_from_user},
     EvtSwap, PoolError,
 };
@@ -34,7 +34,7 @@ pub struct SwapCtx<'info> {
 
     /// Pool account
     #[account(mut, has_one = base_vault, has_one = quote_vault, has_one = config)]
-    pub pool: AccountLoader<'info, Pool>,
+    pub pool: AccountLoader<'info, VirtualPool>,
 
     /// The user token account for input token
     #[account(mut)]

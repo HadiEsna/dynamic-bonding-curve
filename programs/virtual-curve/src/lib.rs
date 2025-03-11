@@ -59,28 +59,41 @@ pub mod virtual_curve {
     }
 
     /// USER FUNCTIONS ////
-    pub fn initialize_pool_with_spl_token<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, InitializePoolWithSplTokenCtx<'info>>,
+    pub fn initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, InitializeVirtualPoolWithSplTokenCtx<'info>>,
         params: InitializePoolParameters,
     ) -> Result<()> {
-        instructions::handle_initialize_pool_with_spl_token(ctx, params)
+        instructions::handle_initialize_virtual_pool_with_spl_token(ctx, params)
     }
 
-    pub fn initialize_pool_with_token2022<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, InitializePoolWithToken2022Ctx<'info>>,
+    pub fn initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, InitializeVirtualPoolWithToken2022Ctx<'info>>,
         params: InitializePoolParameters,
     ) -> Result<()> {
-        instructions::handle_initialize_pool_with_token2022(ctx, params)
+        instructions::handle_initialize_virtual_pool_with_token2022(ctx, params)
     }
+
     pub fn swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> {
         instructions::handle_swap(ctx, params)
     }
 
     /// PERMISSIONLESS FUNCTIONS ///
-    pub fn migrate_to_meteora_damm<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, MigrateToMeteoraDammCtx<'info>>,
+    pub fn migration_meteora_damm_create_metadata<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, MigrationMeteoraDammCreateMetadataCtx<'info>>,
     ) -> Result<()> {
-        instructions::handle_migrate_to_meteora_damm(ctx)
+        instructions::handle_migration_meteora_damm_create_metadata(ctx)
+    }
+
+    pub fn migrate_meteora_damm<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, MigrateMeteoraDammCtx<'info>>,
+    ) -> Result<()> {
+        instructions::handle_migrate_meteora_damm(ctx)
+    }
+
+    pub fn migrate_meteora_damm_lock_lp_token<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, MigrateMeteoraDammLockLpTokenCtx<'info>>,
+    ) -> Result<()> {
+        instructions::handle_migrate_meteora_damm_lock_lp_token(ctx)
     }
 
     // TODO impl endpoint to claim surplus

@@ -2,6 +2,7 @@ use std::u64;
 
 use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+use static_assertions::const_assert_eq;
 
 use crate::{
     constants::MAX_CURVE_POINT,
@@ -55,7 +56,7 @@ pub enum PoolType {
 
 #[account(zero_copy)]
 #[derive(InitSpace, Debug, Default)]
-pub struct Pool {
+pub struct VirtualPool {
     /// Pool fee
     pub pool_fees: PoolFeesStruct,
     /// config key
@@ -96,6 +97,8 @@ pub struct Pool {
     pub _padding_1: [u64; 10],
 }
 
+const_assert_eq!(VirtualPool::INIT_SPACE, 512);
+
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
 pub struct PoolMetrics {
@@ -105,8 +108,7 @@ pub struct PoolMetrics {
     pub total_trading_quote_fee: u64,
 }
 
-// TODO assert init_space
-// const_assert_eq!(PoolMetrics::INIT_SPACE, 72);
+const_assert_eq!(PoolMetrics::INIT_SPACE, 32);
 
 impl PoolMetrics {
     pub fn accumulate_fee(
@@ -127,7 +129,7 @@ impl PoolMetrics {
     }
 }
 
-impl Pool {
+impl VirtualPool {
     pub fn initialize(
         &mut self,
         pool_fees: PoolFeesStruct,

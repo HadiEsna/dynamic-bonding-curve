@@ -3,7 +3,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     constants::seeds::POOL_AUTHORITY_PREFIX,
-    state::{Config, Pool},
+    state::{Config, VirtualPool},
     token::transfer_from_pool,
     EvtClaimTradingFee,
 };
@@ -26,7 +26,7 @@ pub struct ClaimTradingFeesCtx<'info> {
         has_one = base_mint,
         has_one = config,
     )]
-    pub pool: AccountLoader<'info, Pool>,
+    pub pool: AccountLoader<'info, VirtualPool>,
 
     /// The treasury token a account
     #[account(mut)]

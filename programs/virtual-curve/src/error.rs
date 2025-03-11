@@ -331,4 +331,7 @@ pub enum PoolError {
 
     #[msg("Invalid curve")]
     InvalidCurve,
+
+    #[msg("Not permit to do this action")]
+    NotPermitToDoThisAction,
 }

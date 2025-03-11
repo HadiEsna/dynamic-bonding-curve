@@ -25,7 +25,7 @@ pub struct PoolFeesConfig {
     pub padding_1: [u64; 2],
 }
 
-// const_assert_eq!(PoolFeesConfig::INIT_SPACE, 96);
+const_assert_eq!(PoolFeesConfig::INIT_SPACE, 96);
 
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
@@ -228,38 +228,14 @@ pub struct Config {
     pub curve: [LiquidityDistributionConfig; MAX_CURVE_POINT],
 }
 
+const_assert_eq!(Config::INIT_SPACE, 1008);
+
 #[zero_copy]
 #[derive(InitSpace, Debug)]
 pub struct LiquidityDistributionConfig {
     pub sqrt_price: u128,
     pub liquidity: u128,
 }
-
-// pub fn get_timing_constraint_by_activation_type(
-//     activation_type: ActivationType,
-//     clock: &Clock,
-// ) -> TimingConstraint {
-//     match activation_type {
-//         ActivationType::Slot => TimingConstraint {
-//             current_point: clock.slot,
-//             min_activation_duration: SLOT_BUFFER,
-//             max_activation_duration: MAX_ACTIVATION_SLOT_DURATION,
-//             pre_activation_swap_duration: SLOT_BUFFER,
-//             last_join_buffer: FIVE_MINUTES_SLOT_BUFFER,
-//             max_fee_curve_duration: MAX_FEE_CURVE_SLOT_DURATION,
-//             max_high_tax_duration: MAX_HIGH_TAX_SLOT_DURATION,
-//         },
-//         ActivationType::Timestamp => TimingConstraint {
-//             current_point: clock.unix_timestamp as u64,
-//             min_activation_duration: TIME_BUFFER,
-//             max_activation_duration: MAX_ACTIVATION_TIME_DURATION,
-//             pre_activation_swap_duration: TIME_BUFFER,
-//             last_join_buffer: FIVE_MINUTES_TIME_BUFFER,
-//             max_fee_curve_duration: MAX_FEE_CURVE_TIME_DURATION,
-//             max_high_tax_duration: MAX_HIGH_TAX_TIME_DURATION,
-//         },
-//     }
-// }
 
 impl Config {
     pub fn init(
