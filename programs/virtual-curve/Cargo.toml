@@ -28,7 +28,7 @@ num_enum = "0.7.0"
 num = "0.4.3"
 spl-token-metadata-interface = { version = "=0.2.0" }
 mpl-token-metadata = "3.2.3"
-dynamic-amm = { path = "../dynamic-amm", features = ["no-entrypoint", "cpi"] }
+dynamic-amm = { path = "../../libs/dynamic-amm", features = ["no-entrypoint", "cpi"] }
 
 [dev-dependencies]
 proptest = "1.2.0"

@@ -992,14 +992,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dynamic-vault"
-version = "0.9.1"
-dependencies = [
- "anchor-gen",
- "anchor-lang",
-]
-
-[[package]]
 name = "ed25519"
 version = "1.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
