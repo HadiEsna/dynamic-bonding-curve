@@ -16,6 +16,8 @@ pub const MAX_CURVE_POINT: usize = 20;
 
 pub const MAX_TOKEN_SUPPLY: u64 = 10_000_000_000; // 10 billion
 
+pub const PARTNER_SURPLUS_SHARE: u8 = 90; // 90 %
+
 pub mod activation {
     #[cfg(not(feature = "local"))]
     pub const SLOT_BUFFER: u64 = 9000; // 1 slot = 400 mls => 1 hour
