@@ -159,6 +159,9 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
         current_timestamp,
     )?;
 
+    // validate quote amount will not over max quote amount
+    pool.validate_max_quote_reserve()?;
+
     // send to reserve
     transfer_from_user(
         &ctx.accounts.payer,

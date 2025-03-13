@@ -331,9 +331,6 @@ impl VirtualPool {
         is_skip_fee: bool,
         current_point: u64,
     ) -> Result<SwapResult> {
-        // validate quote amount will not over max quote amount
-        self.validate_max_quote_reserve(amount_in)?;
-
         // finding new target price
         let mut total_output_amount = 0u64;
         let mut current_sqrt_price = self.sqrt_price;
@@ -525,9 +522,9 @@ impl VirtualPool {
         Ok((token_base_amount, token_quote_amount))
     }
 
-    pub fn validate_max_quote_reserve(&self, amount: u64) -> Result<()> {
+    pub fn validate_max_quote_reserve(&self) -> Result<()> {
         require!(
-            self.quote_reserve.safe_add(amount)? <= self.max_quote_reserve,
+            self.quote_reserve <= self.max_quote_reserve,
             PoolError::OverMaxQuoteReserve
         );
 
