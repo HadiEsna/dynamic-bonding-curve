@@ -85,6 +85,8 @@ pub struct VirtualPool {
     pub sqrt_price: u128,
     /// Activation point
     pub activation_point: u64,
+    /// max quote reserve
+    pub max_quote_reserve: u64,
     /// pool type, spl token or token2022
     pub pool_type: u8,
     /// is migrated
@@ -101,7 +103,7 @@ pub struct VirtualPool {
     pub _padding_1: [u64; 10],
 }
 
-const_assert_eq!(VirtualPool::INIT_SPACE, 512);
+const_assert_eq!(VirtualPool::INIT_SPACE, 520);
 
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
@@ -146,6 +148,7 @@ impl VirtualPool {
         pool_type: u8,
         activation_point: u64,
         base_reverse: u64,
+        max_quote_reserve: u64,
     ) {
         self.pool_fees = pool_fees;
         self.config = config;
@@ -157,6 +160,7 @@ impl VirtualPool {
         self.pool_type = pool_type;
         self.activation_point = activation_point;
         self.base_reserve = base_reverse;
+        self.max_quote_reserve = max_quote_reserve;
     }
 
     pub fn get_swap_result(
@@ -327,6 +331,9 @@ impl VirtualPool {
         is_skip_fee: bool,
         current_point: u64,
     ) -> Result<SwapResult> {
+        // validate quote amount will not over max quote amount
+        self.validate_max_quote_reserve(amount_in)?;
+
         // finding new target price
         let mut total_output_amount = 0u64;
         let mut current_sqrt_price = self.sqrt_price;
@@ -377,6 +384,7 @@ impl VirtualPool {
         }
 
         require!(amount_left == 0, PoolError::NotEnoughLiquidity);
+        // validate is not exceed quote
 
         if is_skip_fee {
             Ok(SwapResult {
@@ -516,6 +524,15 @@ impl VirtualPool {
         self.trading_base_fee = self.trading_base_fee.safe_sub(token_base_amount)?;
         self.trading_quote_fee = self.trading_quote_fee.safe_sub(token_quote_amount)?;
         Ok((token_base_amount, token_quote_amount))
+    }
+
+    pub fn validate_max_quote_reserve(&self, amount: u64) -> Result<()> {
+        require!(
+            self.quote_reserve.safe_add(amount)? <= self.max_quote_reserve,
+            PoolError::OverMaxQuoteReserve
+        );
+
+        Ok(())
     }
 
     pub fn is_curve_complete(&self, migration_threshold: u64) -> bool {

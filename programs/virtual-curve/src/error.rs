@@ -349,4 +349,7 @@ pub enum PoolError {
 
     #[msg("Surplus has been withdraw")]
     SurplusHasBeenWithdraw,
+
+    #[msg("Over max quote reserve")]
+    OverMaxQuoteReserve,
 }

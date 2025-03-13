@@ -3,7 +3,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use static_assertions::const_assert_eq;
 
 use crate::{
-    constants::{MAX_CURVE_POINT, MAX_SQRT_PRICE, MAX_TOKEN_SUPPLY},
+    constants::{BUFFER_QUOTE_RESERVE_PERCENT, MAX_CURVE_POINT, MAX_SQRT_PRICE, MAX_TOKEN_SUPPLY},
     params::{
         fee_parameters::{BaseFeeParameters, DynamicFeeParameters, PoolFeeParamters},
         liquidity_distribution::LiquidityDistributionParameters,
@@ -300,5 +300,16 @@ impl Config {
         let min_amount = max_amount.min(max_supply);
 
         Ok(u64::try_from(min_amount).map_err(|_| PoolError::MathOverflow)?)
+    }
+
+    pub fn get_max_quote_reserve(&self) -> Result<u64> {
+        let buffer_amount = u128::from(self.migration_quote_threshold)
+            .safe_mul(BUFFER_QUOTE_RESERVE_PERCENT.into())?
+            .safe_div(100u128)?;
+
+        let max_quote_reserve: u128 =
+            u128::from(self.migration_quote_threshold).safe_add(buffer_amount)?;
+
+        Ok(u64::try_from(max_quote_reserve).map_err(|_| PoolError::MathOverflow)?)
     }
 }
