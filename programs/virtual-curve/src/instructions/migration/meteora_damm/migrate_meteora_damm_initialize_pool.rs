@@ -26,6 +26,7 @@ pub struct MigrateMeteoraDammCtx<'info> {
 
     /// CHECK: pool authority
     #[account(
+        mut,
             seeds = [
                 POOL_AUTHORITY_PREFIX.as_ref(),
             ],
@@ -45,6 +46,7 @@ pub struct MigrateMeteoraDammCtx<'info> {
     pub lp_mint: UncheckedAccount<'info>,
 
     /// CHECK: base token mint
+    #[account(mut)]
     pub token_a_mint: UncheckedAccount<'info>, // match with vault.base_mint
     /// CHECK: quote token mint
     pub token_b_mint: UncheckedAccount<'info>, // match with vault.quote_mint
@@ -125,7 +127,7 @@ impl<'info> MigrateMeteoraDammCtx<'info> {
             PoolError::InvalidConfigAccount
         );
         require!(
-            self.damm_config.activation_type == 0,
+            self.damm_config.activation_type == self.config.load()?.activation_type,
             PoolError::InvalidConfigAccount
         );
         require!(
@@ -170,8 +172,8 @@ impl<'info> MigrateMeteoraDammCtx<'info> {
                 self.system_program.to_account_info(),
             ],
         )?;
-
         // Vault authority create pool
+        msg!("Activation point: {:?}", activation_point);
         msg!("create pool");
         dynamic_amm::cpi::initialize_permissionless_constant_product_pool_with_config2(
             CpiContext::new_with_signer(
@@ -242,7 +244,6 @@ pub fn handle_migrate_meteora_damm<'info>(
         migration_option == MigrationOption::MeteoraDamm,
         PoolError::InvalidMigrationOption
     );
-
     let base_reserve = config.migration_base_threshold;
     let quote_reserve = config.migration_quote_threshold;
 

@@ -108,7 +108,6 @@ impl ConfigParameters {
         }
 
         let max_quote_delta = get_max_delta_quote_token(self.sqrt_start_price, &self.curve)?;
-
         // TODO we need to add more threshold here
         require!(
             max_quote_delta >= self.migration_quote_threshold,
