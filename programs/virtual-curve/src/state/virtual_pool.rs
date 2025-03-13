@@ -384,7 +384,6 @@ impl VirtualPool {
         }
 
         require!(amount_left == 0, PoolError::NotEnoughLiquidity);
-        // validate is not exceed quote
 
         if is_skip_fee {
             Ok(SwapResult {
