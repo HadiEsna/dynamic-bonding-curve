@@ -54,6 +54,7 @@ fn test_swap() {
     );
 
     let mut pool = VirtualPool::default();
+    let max_quote_reserve = config.get_max_quote_reserve().unwrap();
     pool.initialize(
         config.pool_fees.to_pool_fees_struct(),
         Pubkey::default(),
@@ -65,6 +66,7 @@ fn test_swap() {
         0,
         0,
         config.get_initial_base_supply().unwrap(),
+        max_quote_reserve,
     );
     let amount_in = 1_000_000_000; // 1k
     let result = pool
