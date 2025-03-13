@@ -3,7 +3,7 @@ use solana_program::{program::invoke, system_instruction};
 
 use crate::{
     activation_handler::get_current_point,
-    constants::{meteora_damm_config, seeds::POOL_AUTHORITY_PREFIX},
+    constants::seeds::POOL_AUTHORITY_PREFIX,
     safe_math::SafeMath,
     state::{
         Config, MeteoraDammMigrationMetadata, MigrationMeteoraDammProgress, MigrationOption,
@@ -37,9 +37,8 @@ pub struct MigrateMeteoraDammCtx<'info> {
     #[account(mut)]
     pub pool: UncheckedAccount<'info>,
 
-    /// CHECK: pool config
-    #[account(address = meteora_damm_config::ID)]
-    pub damm_config: UncheckedAccount<'info>,
+    /// pool config
+    pub damm_config: Box<Account<'info, dynamic_amm::Config>>,
 
     /// CHECK: lp_mint
     #[account(mut)]
@@ -120,6 +119,34 @@ pub struct MigrateMeteoraDammCtx<'info> {
 }
 
 impl<'info> MigrateMeteoraDammCtx<'info> {
+    fn validate_config_key(&self) -> Result<()> {
+        require!(
+            self.damm_config.pool_creator_authority == self.pool_authority.key(),
+            PoolError::InvalidConfigAccount
+        );
+        require!(
+            self.damm_config.activation_type == 0,
+            PoolError::InvalidConfigAccount
+        );
+        require!(
+            self.damm_config.activation_duration == 0,
+            PoolError::InvalidConfigAccount
+        );
+        require!(
+            self.damm_config.partner_fee_numerator == 0,
+            PoolError::InvalidConfigAccount
+        );
+        require!(
+            self.damm_config.pool_fees.trade_fee_numerator == 1000, // 1%
+            PoolError::InvalidConfigAccount
+        );
+        require!(
+            self.damm_config.vault_config_key == Pubkey::default(),
+            PoolError::InvalidConfigAccount
+        );
+        Ok(())
+    }
+
     fn create_pool(
         &self,
         initial_base_amount: u64,
@@ -191,6 +218,7 @@ impl<'info> MigrateMeteoraDammCtx<'info> {
 pub fn handle_migrate_meteora_damm<'info>(
     ctx: Context<'_, '_, '_, 'info, MigrateMeteoraDammCtx<'info>>,
 ) -> Result<()> {
+    ctx.accounts.validate_config_key()?;
     let mut migration_metadata = ctx.accounts.migration_metadata.load_mut()?;
     let migration_progress = MigrationMeteoraDammProgress::try_from(migration_metadata.progress)
         .map_err(|_| PoolError::TypeCastFailed)?;

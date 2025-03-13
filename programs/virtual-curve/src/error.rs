@@ -343,4 +343,7 @@ pub enum PoolError {
 
     #[msg("Invalid owner account")]
     InvalidOwnerAccount,
+
+    #[msg("Invalid config account")]
+    InvalidConfigAccount,
 }
