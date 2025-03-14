@@ -447,23 +447,31 @@ impl VirtualPool {
 
         // update reserve
         // fee is in input token
-        let actual_amount_in_reserve = if collect_fee_mode == CollectFeeMode::OnlyB
+        let (actual_amount_in_reserve, actual_output_in_reserve) = if collect_fee_mode
+            == CollectFeeMode::OnlyB
             && trade_direction == TradeDirection::QuotetoBase
         {
-            amount_in
+            let total_in_amount = amount_in
                 .safe_sub(swap_result.trading_fee)?
                 .safe_sub(swap_result.protocol_fee)?
-                .safe_sub(swap_result.referral_fee)?
+                .safe_sub(swap_result.referral_fee)?;
+
+            (total_in_amount, output_amount)
         } else {
-            amount_in
+            let total_output_amount = output_amount
+                .safe_add(swap_result.trading_fee)?
+                .safe_add(swap_result.protocol_fee)?
+                .safe_add(swap_result.referral_fee)?;
+
+            (amount_in, total_output_amount)
         };
 
         if trade_direction == TradeDirection::BasetoQuote {
             self.base_reserve = self.base_reserve.safe_add(actual_amount_in_reserve)?;
-            self.quote_reserve = self.quote_reserve.safe_sub(output_amount)?;
+            self.quote_reserve = self.quote_reserve.safe_sub(actual_output_in_reserve)?;
         } else {
             self.quote_reserve = self.quote_reserve.safe_add(actual_amount_in_reserve)?;
-            self.base_reserve = self.base_reserve.safe_sub(output_amount)?;
+            self.base_reserve = self.base_reserve.safe_sub(actual_output_in_reserve)?;
         }
 
         self.update_post_swap(old_sqrt_price, current_timestamp)?;
