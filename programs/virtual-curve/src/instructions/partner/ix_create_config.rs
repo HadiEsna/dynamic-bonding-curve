@@ -7,8 +7,7 @@ use crate::{
     params::{
         fee_parameters::PoolFeeParamters,
         liquidity_distribution::{
-            get_max_delta_quote_token, get_minimum_base_token_for_curve,
-            LiquidityDistributionParameters,
+            get_minimum_base_token_for_curve, LiquidityDistributionParameters,
         },
     },
     state::{CollectFeeMode, Config, MigrationOption, TokenType},
@@ -79,7 +78,7 @@ impl ConfigParameters {
         // validate quote threshold
         for i in 0..DEFAULT_QUOTE_MINTS.len() {
             if DEFAULT_QUOTE_MINTS[i].eq(&quote_mint) {
-                // TODO validate upper
+                // TODO validate upper?
                 require!(
                     self.migration_quote_threshold >= DEFAULT_QUOTE_THRESHOLD[i],
                     PoolError::InvalidQuoteThreshold
@@ -107,10 +106,9 @@ impl ConfigParameters {
             );
         }
 
-        let max_quote_delta = get_max_delta_quote_token(self.sqrt_start_price, &self.curve)?;
-        // TODO we need to add more threshold here
+        // the last price in curve must be max price
         require!(
-            max_quote_delta >= self.migration_quote_threshold,
+            self.curve[self.curve.len() - 1].sqrt_price == MAX_SQRT_PRICE,
             PoolError::InvalidCurve
         );
 
@@ -163,6 +161,14 @@ pub fn handle_create_config(
 
     let (swap_base_amount, migration_base_amount) =
         get_minimum_base_token_for_curve(migration_quote_threshold, sqrt_start_price, &curve)?;
+
+    let total_base_with_buffer =
+        Config::total_amount_with_buffer(swap_base_amount, migration_base_amount)?;
+    let max_supply = Config::get_max_supply(token_decimal)?;
+    require!(
+        total_base_with_buffer <= max_supply,
+        PoolError::TotalBaseTokenExceedMaxSupply
+    );
 
     let mut config = ctx.accounts.config.load_init()?;
     config.init(
