@@ -37,7 +37,7 @@ import {
 } from "./instructions/meteoraMigration";
 import { assert } from "chai";
 
-describe("Happy path full flow", () => {
+describe("Full flow with sol", () => {
   let context: ProgramTestContext;
   let admin: Keypair;
   let operator: Keypair;
@@ -88,7 +88,7 @@ describe("Happy path full flow", () => {
       feeSchedulerMode: 0,
     };
 
-    const curves = [];
+    let curves = [];
 
     for (let i = 1; i <= 20; i++) {
       curves.push({
@@ -96,6 +96,8 @@ describe("Happy path full flow", () => {
         liquidity: U64_MAX.shln(30 + i),
       });
     }
+
+    curves[curves.length - 1].sqrtPrice = MAX_SQRT_PRICE;
 
     const instructionParams: ConfigParameters = {
       poolFees: {

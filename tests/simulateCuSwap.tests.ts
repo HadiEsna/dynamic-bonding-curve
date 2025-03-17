@@ -40,13 +40,14 @@ describe("Simulate CU swap", () => {
     const result = [];
     for (let curve_size = 1; curve_size <= 30; curve_size++) {
       try {
-        const curves = [];
+        let curves = [];
         for (let i = 1; i <= curve_size; i++) {
           curves.push({
             sqrtPrice: MAX_SQRT_PRICE.muln(i * 5).divn(100),
             liquidity: U64_MAX.shln(30 + i),
           });
         }
+        curves[curves.length - 1].sqrtPrice = MAX_SQRT_PRICE;
 
         const baseFee: BaseFee = {
           cliffFeeNumerator: new BN(2_500_000),

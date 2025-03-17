@@ -56,7 +56,7 @@ describe("Fee Swap test", () => {
         feeSchedulerMode: 0,
       };
 
-      const curves = [];
+      let curves = [];
 
       for (let i = 1; i <= 20; i++) {
         curves.push({
@@ -64,6 +64,8 @@ describe("Fee Swap test", () => {
           liquidity: U64_MAX.shln(30 + i),
         });
       }
+
+      curves[curves.length - 1].sqrtPrice = MAX_SQRT_PRICE;
 
       const instructionParams: ConfigParameters = {
         poolFees: {
