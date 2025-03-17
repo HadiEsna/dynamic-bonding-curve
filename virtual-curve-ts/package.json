@@ -1,0 +1,25 @@
+{
+  "name": "virtual-curve-ts",
+  "module": "index.ts",
+  "type": "module",
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --format esm"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.29.0",
+    "@elysiajs/cors": "^1.2.0",
+    "@elysiajs/swagger": "^1.2.2",
+    "@solana/web3.js": "^1.98.0",
+    "bn.js": "^5.2.1",
+    "elysia": "^1.2.25"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "files": [
+    "dist"
+  ]
+}
