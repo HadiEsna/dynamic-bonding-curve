@@ -56,7 +56,7 @@ AccountLayout.encode(
   tokenAccData
 );
 
-export async function startTest() {
+export async function startTest(root: Keypair) {
   // Program name need to match fixtures program name
   return startAnchor(
     "./",
@@ -80,7 +80,7 @@ export async function startTest() {
     ],
     [
       {
-        address: LOCAL_ADMIN_KEYPAIR.publicKey,
+        address: root.publicKey,
         info: {
           executable: false,
           owner: SystemProgram.programId,

@@ -52,7 +52,8 @@ describe("Full flow with sol", () => {
   let claimFeeOperator: PublicKey;
 
   before(async () => {
-    context = await startTest();
+    const root = Keypair.generate();
+    context = await startTest(root);
     admin = context.payer;
     operator = Keypair.generate();
     partner = Keypair.generate();

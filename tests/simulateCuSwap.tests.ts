@@ -30,7 +30,8 @@ describe("Simulate CU swap", () => {
   let pool: PublicKey;
 
   beforeEach(async () => {
-    context = await startTest();
+    const root = Keypair.generate();
+    context = await startTest(root);
     admin = context.payer;
 
     program = createVirtualCurveProgram();

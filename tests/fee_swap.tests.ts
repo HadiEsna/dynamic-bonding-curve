@@ -35,7 +35,8 @@ describe("Fee Swap test", () => {
     let virtualPoolState: Pool;
 
     before(async () => {
-      context = await startTest();
+      const root = Keypair.generate();
+      context = await startTest(root);
       admin = context.payer;
       partner = Keypair.generate();
       user = Keypair.generate();
@@ -343,7 +344,8 @@ describe("Fee Swap test", () => {
     let virtualPoolState: Pool;
 
     before(async () => {
-      context = await startTest();
+      const root = Keypair.generate();
+      context = await startTest(root);
       admin = context.payer;
       partner = Keypair.generate();
       user = Keypair.generate();
