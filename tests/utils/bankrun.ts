@@ -97,6 +97,8 @@ export async function startTest(root: Keypair) {
           executable: false,
         },
       },
-    ]
+    ],
+    undefined,
+    BigInt(100_000_000)
   );
 }
