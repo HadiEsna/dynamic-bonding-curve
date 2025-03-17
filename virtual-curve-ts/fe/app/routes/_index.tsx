@@ -3,9 +3,6 @@ import type { MetaFunction } from '@remix-run/cloudflare'
 import { Link } from '@remix-run/react'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
-import { Buffer } from 'buffer'
-
-globalThis.Buffer = Buffer
 
 export const meta: MetaFunction = () => {
   return [

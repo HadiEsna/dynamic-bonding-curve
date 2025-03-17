@@ -1,4 +1,4 @@
-import type { LinksFunction } from '@remix-run/cloudflare'
+import type { LinksFunction, LoaderFunctionArgs } from '@remix-run/cloudflare'
 import {
   Links,
   Meta,
@@ -18,7 +18,9 @@ import { useMemo } from 'react'
 import WalletNotification from './components/WalletNotification'
 import { VirtualProgramProvider } from './contexts/VirtualProgramContext'
 import { Toaster } from 'sonner'
+import { Buffer } from 'buffer'
 
+globalThis.Buffer = Buffer
 export const links: LinksFunction = () => [
   { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
   {
@@ -32,12 +34,11 @@ export const links: LinksFunction = () => [
   },
 ]
 
-export async function loader() {
-  return Response.json({
-    ENV: {
-      RPC_ENDPOINT: process.env.RPC_ENDPOINT,
-    },
-  })
+export async function loader({ context }: LoaderFunctionArgs) {
+  return {
+    RPC_ENDPOINT:
+      context.cloudflare.env.RPC_ENDPOINT || process.env.RPC_ENDPOINT,
+  }
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -47,7 +48,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     ) as Adapter[]
   }, [])
 
-  const data = useLoaderData<{ ENV: { RPC_ENDPOINT: string } }>()
+  const data = useLoaderData<typeof loader>()
 
   return (
     <html lang="en">
@@ -58,7 +59,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
-        <VirtualProgramProvider rpcEndpoint={data.ENV.RPC_ENDPOINT}>
+        <VirtualProgramProvider rpcEndpoint={data.RPC_ENDPOINT!}>
           <UnifiedWalletProvider
             wallets={wallets}
             config={{

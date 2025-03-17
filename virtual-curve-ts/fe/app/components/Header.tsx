@@ -18,13 +18,14 @@ export default function Header({ currentPath = '' }: HeaderProps) {
   return (
     <header className="container mx-auto px-4 py-6 flex justify-between items-center">
       <div className="flex items-center gap-2">
-        <Link to="/" className="flex items-center gap-2">
+        <Link prefetch="render" to="/" className="flex items-center gap-2">
           <CircleDot className="w-6 h-6 text-white" strokeWidth={1.5} />
           <h1 className="text-2xl font-bold">Virtual Curve</h1>
         </Link>
       </div>
       <nav className="hidden md:flex gap-6">
         <Link
+          prefetch="render"
           to="/"
           className={
             currentPath === '/'
@@ -35,6 +36,7 @@ export default function Header({ currentPath = '' }: HeaderProps) {
           Home
         </Link>
         <Link
+          prefetch="render"
           to="/explore"
           className={
             currentPath === '/explore'
@@ -45,6 +47,7 @@ export default function Header({ currentPath = '' }: HeaderProps) {
           Explore Pools
         </Link>
         <Link
+          prefetch="render"
           to="/config"
           className={
             currentPath === '/config'
@@ -55,6 +58,7 @@ export default function Header({ currentPath = '' }: HeaderProps) {
           Configurations
         </Link>
         <Link
+          prefetch="render"
           to="/create"
           className={
             currentPath === '/create'
@@ -65,6 +69,7 @@ export default function Header({ currentPath = '' }: HeaderProps) {
           Create Pool
         </Link>
         <Link
+          prefetch="render"
           to="/docs"
           className={
             currentPath === '/docs'

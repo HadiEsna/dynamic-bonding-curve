@@ -10,6 +10,9 @@
 	"pages_build_output_dir": "./build/client",
 	"observability": {
 		"enabled": true
+	},
+	"vars": {
+		"RPC_ENDPOINT": "https://mainnet.helius-rpc.com/?api-key=cdb44f70-0173-4b5d-aa3d-8d128eb8a86c"
 	}
 	/**
 	 * Smart Placement
