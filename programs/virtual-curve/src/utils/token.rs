@@ -16,6 +16,7 @@ use anchor_spl::{
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+use spl_token_metadata_interface::state::TokenMetadata;
 
 use crate::PoolError;
 
@@ -256,7 +257,7 @@ pub fn create_position_base_mint_with_extensions<'info>(
                     None,
                     Some(base_mint.key()),
                 )?;
-                solana_program::program::invoke(
+                anchor_lang::solana_program::program::invoke(
                     &ix,
                     &[token_2022_program.clone(), base_mint.clone()],
                 )?;
@@ -292,6 +293,7 @@ pub fn create_position_base_mint_with_extensions<'info>(
         uri,
         bump,
     )?;
+
     Ok(())
 }
 
@@ -317,9 +319,7 @@ pub fn initialize_token_metadata_extension<'info>(
         let mint_state_unpacked =
             StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&mint_data)?;
         let new_account_len = mint_state_unpacked
-            .try_get_new_account_len::<spl_token_metadata_interface::state::TokenMetadata>(
-            &metadata,
-        )?;
+            .try_get_new_account_len_for_variable_len_extension::<TokenMetadata>(&metadata)?;
         let new_rent_exempt_lamports = Rent::get()?.minimum_balance(new_account_len);
         let additional_lamports = new_rent_exempt_lamports.saturating_sub(base_mint.lamports());
         additional_lamports
@@ -336,7 +336,7 @@ pub fn initialize_token_metadata_extension<'info>(
     }
     let seeds = pool_authority_seeds!(bump);
     let signer_seeds = &[&seeds[..]];
-    solana_program::program::invoke_signed(
+    anchor_lang::solana_program::program::invoke_signed(
         &spl_token_metadata_interface::instruction::initialize(
             token_2022_program.key,
             base_mint.key,

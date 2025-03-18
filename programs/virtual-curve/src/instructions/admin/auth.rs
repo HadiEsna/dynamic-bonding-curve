@@ -10,14 +10,10 @@ pub mod admin {
 }
 
 pub mod treasury {
-    use anchor_lang::declare_id;
-    // https://v3.squads.so/dashboard/RW5xNldRYjJaS1FFdlYzQUhWUTQxaTU3VlZoRHRoQWJ0eU12Wm9SaFo3RQ==
-    declare_id!("BJQbRiRWhJCyTYZcAuAL3ngDCx3AyFQGKDq8zhiZAKUw");
-}
+    use anchor_lang::{prelude::Pubkey, solana_program::pubkey};
 
-pub mod fee_update_authority {
-    use anchor_lang::declare_id;
-    declare_id!("fee3qJNFpqUEYLCaCntRNqNdqrX2yCeYnpxUj2TJP9P");
+    // https://v3.squads.so/dashboard/RW5xNldRYjJaS1FFdlYzQUhWUTQxaTU3VlZoRHRoQWJ0eU12Wm9SaFo3RQ==
+    pub const ID: Pubkey = pubkey!("BJQbRiRWhJCyTYZcAuAL3ngDCx3AyFQGKDq8zhiZAKUw");
 }
 
 #[cfg(feature = "local")]
