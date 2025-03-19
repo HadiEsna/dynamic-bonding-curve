@@ -37,7 +37,7 @@ jobs:
       - uses: ./.github/actions/setup-solana
       - uses: ./.github/actions/setup-dep
       - uses: ./.github/actions/setup-anchor
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: 1.79.0
           components: clippy
@@ -59,11 +59,10 @@ jobs:
     if: needs.program_changed_files.outputs.program == 'true'
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: 1.79.0
           components: clippy
-      # - run: rustup target add x86_64-unknown-linux-gnu
       # Cache rust, cargo
       - uses: Swatinem/rust-cache@v1
       - run: cargo test --package virtual-curve
@@ -83,7 +82,7 @@ jobs:
         with:
           version: 9.5.0 # Optional: specify a pnpm version
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: 1.79.0
           components: clippy
