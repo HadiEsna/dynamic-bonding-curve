@@ -14,7 +14,8 @@ import {
 } from 'lucide-react'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
-import CurveChart from '../components/CurveChart'
+import TokenomicsChart from '../components/TokenomicsChart'
+import { TEMPLATES } from '../lib/templates'
 
 export const meta: MetaFunction = () => {
   return [
@@ -483,17 +484,30 @@ export default function CreatePool() {
                   Price Curve Preview
                 </h3>
                 <div className="h-64 rounded-lg flex items-center justify-center">
-                  <CurveChart
-                    curveType={formValues.curveType}
-                    initialPrice={formValues.initialPrice}
-                    maxSupply={formValues.maxSupply}
-                    customPoints={
+                  <TokenomicsChart
+                    liquidityPoints={
                       formValues.curveType === 'custom' &&
                       formValues.customCurveParams
-                        ? formValues.customCurveParams.points
-                        : []
+                        ? formValues.customCurveParams.points.map((point) => ({
+                            sqrtPrice: Math.sqrt(point.y * Math.pow(10, 9)), // Convert price to sqrtPrice
+                            liquidity: Math.round(
+                              (point.x * formValues.maxSupply) / 100
+                            ), // Convert percentage to tokens
+                          }))
+                        : formValues.curveType === 'exponential'
+                        ? TEMPLATES.exponential.liquidityDistribution || []
+                        : TEMPLATES.linear.liquidityDistribution || []
                     }
                     height={256}
+                    decimals={9} // Use default decimal places
+                    showLiquidity={false}
+                    lineColor={
+                      formValues.curveType === 'exponential'
+                        ? '#ec4899'
+                        : formValues.curveType === 'custom'
+                        ? '#a855f7'
+                        : '#3b82f6'
+                    }
                   />
                 </div>
                 <p className="text-center text-gray-400 text-sm mt-4">

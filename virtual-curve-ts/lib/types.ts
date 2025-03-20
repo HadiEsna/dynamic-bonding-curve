@@ -4,82 +4,75 @@ import type {
   IdlAccounts,
   Accounts,
 } from '@coral-xyz/anchor'
-import { type IDL } from './idl'
+import { type VirtualCurve as IDL } from './idl'
 
 export type VirtualCurveProgram = Program<IDL>
 
 // ix accounts
 export type CreateClaimFeeOperatorAccounts = Accounts<
-  IDL['instructions']['0']
+  IDL['instructions']['3']
 >['createClaimFeeOperator']
 export type CloseClaimFeeOperatorAccounts = Accounts<
-  IDL['instructions']['1']
+  IDL['instructions']['2']
 >['closeClaimFeeOperator']
 export type ClaimProtocolFeeAccounts = Accounts<
-  IDL['instructions']['2']
+  IDL['instructions']['0']
 >['claimProtocolFee']
-export type CreateConfigAccounts = Accounts<
-  IDL['instructions']['3']
->['createConfig']
 export type ClaimTradingFeeAccounts = Accounts<
-  IDL['instructions']['4']
+  IDL['instructions']['1']
 >['claimTradingFee']
+export type CreateConfigAccounts = Accounts<
+  IDL['instructions']['4']
+>['createConfig']
 export type InitializeVirtualPoolWithSplTokenAccounts = Accounts<
   IDL['instructions']['5']
 >['initializeVirtualPoolWithSplToken']
 export type InitializeVirtualPoolWithToken2022Accounts = Accounts<
   IDL['instructions']['6']
 >['initializeVirtualPoolWithToken2022']
-export type SwapAccounts = Accounts<IDL['instructions']['7']>['swap']
-export type MigrationMeteoraDammCreateMetadataAccounts = Accounts<
-  IDL['instructions']['8']
->['migrationMeteoraDammCreateMetadata']
 export type MigrateMeteoraDammAccounts = Accounts<
-  IDL['instructions']['9']
+  IDL['instructions']['7']
 >['migrateMeteoraDamm']
 export type MigrateMeteoraDammLockLpTokenForCreatorAccounts = Accounts<
-  IDL['instructions']['10']
+  IDL['instructions']['8']
 >['migrateMeteoraDammLockLpTokenForCreator']
 export type MigrateMeteoraDammLockLpTokenForPartnerAccounts = Accounts<
-  IDL['instructions']['11']
+  IDL['instructions']['9']
 >['migrateMeteoraDammLockLpTokenForPartner']
+export type MigrationMeteoraDammCreateMetadataAccounts = Accounts<
+  IDL['instructions']['10']
+>['migrationMeteoraDammCreateMetadata']
+export type PartnerWithdrawSurplusAccounts = Accounts<
+  IDL['instructions']['11']
+>['partnerWithdrawSurplus']
+export type ProtocolWithdrawSurplusAccounts = Accounts<
+  IDL['instructions']['12']
+>['protocolWithdrawSurplus']
+export type SwapAccounts = Accounts<IDL['instructions']['13']>['swap']
 
 // types
-export type InitializePoolParameters = IdlTypes<IDL>['InitializePoolParameters']
-export type SwapParameters = IdlTypes<IDL>['SwapParameters']
-export type ConfigParameters = IdlTypes<IDL>['ConfigParameters']
-export type PoolFeeParamters = IdlTypes<IDL>['PoolFeeParamters']
-export type BaseFeeParameters = IdlTypes<IDL>['BaseFeeParameters']
-export type DynamicFeeParameters = IdlTypes<IDL>['DynamicFeeParameters']
+export type InitializePoolParameters = IdlTypes<IDL>['initializePoolParameters']
+export type SwapParameters = IdlTypes<IDL>['swapParameters']
+export type ConfigParameters = IdlTypes<IDL>['configParameters']
+export type PoolFeeParamters = IdlTypes<IDL>['poolFeeParamters']
+export type BaseFeeParameters = IdlTypes<IDL>['baseFeeConfig']
+export type DynamicFeeParameters = IdlTypes<IDL>['dynamicFeeParameters']
 export type LiquidityDistributionParameters =
-  IdlTypes<IDL>['LiquidityDistributionParameters']
-export type PoolFeesConfig = IdlTypes<IDL>['PoolFeesConfig']
-export type BaseFeeConfig = IdlTypes<IDL>['BaseFeeConfig']
-export type DynamicFeeConfig = IdlTypes<IDL>['DynamicFeeConfig']
+  IdlTypes<IDL>['liquidityDistributionParameters']
+export type PoolFeesConfig = IdlTypes<IDL>['poolFees']
+export type BaseFeeConfig = IdlTypes<IDL>['baseFeeConfig']
+export type DynamicFeeConfig = IdlTypes<IDL>['dynamicFeeParameters']
 export type LiquidityDistributionConfig =
-  IdlTypes<IDL>['LiquidityDistributionConfig']
-export type PoolFeesStruct = IdlTypes<IDL>['PoolFeesStruct']
-export type BaseFeeStruct = IdlTypes<IDL>['BaseFeeStruct']
-export type DynamicFeeStruct = IdlTypes<IDL>['DynamicFeeStruct']
-export type PoolMetrics = IdlTypes<IDL>['PoolMetrics']
-export type SwapResult = IdlTypes<IDL>['SwapResult']
-
-// enums
-export type Rounding = IdlTypes<IDL>['Rounding']
-export type TradeDirection = IdlTypes<IDL>['TradeDirection']
-export type MigrationOption = IdlTypes<IDL>['MigrationOption']
-export type TokenType = IdlTypes<IDL>['TokenType']
-export type FeeSchedulerMode = IdlTypes<IDL>['FeeSchedulerMode']
-export type MigrationMeteoraDammProgress =
-  IdlTypes<IDL>['MigrationMeteoraDammProgress']
-export type CollectFeeMode = IdlTypes<IDL>['CollectFeeMode']
-export type PoolType = IdlTypes<IDL>['PoolType']
-export type ActivationType = IdlTypes<IDL>['ActivationType']
-export type TokenProgramFlags = IdlTypes<IDL>['TokenProgramFlags']
+  IdlTypes<IDL>['liquidityDistributionParameters']
+export type PoolFeesStruct = IdlTypes<IDL>['poolFees']
+export type BaseFeeStruct = IdlTypes<IDL>['baseFeeConfig']
+export type DynamicFeeStruct = IdlTypes<IDL>['dynamicFeeParameters']
+export type PoolMetrics = IdlTypes<IDL>['poolMetrics']
+export type SwapResult = IdlTypes<IDL>['swapResult']
 
 // accounts
-export type ClaimFeeOperator = IdlAccounts<IDL>['ClaimFeeOperator']
-export type Config = IdlAccounts<IDL>['Config']
+export type ClaimFeeOperator = IdlAccounts<IDL>['claimFeeOperator']
+export type Config = IdlAccounts<IDL>['config']
 export type MeteoraDammMigrationMetadata =
-  IdlAccounts<IDL>['MeteoraDammMigrationMetadata']
-export type VirtualPool = IdlAccounts<IDL>['VirtualPool']
+  IdlAccounts<IDL>['meteoraDammMigrationMetadata']
+export type VirtualPool = IdlAccounts<IDL>['virtualPool']

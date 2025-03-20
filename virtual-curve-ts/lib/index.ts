@@ -1,5 +1,6 @@
 import {
   Connection,
+  Keypair,
   PublicKey,
   Transaction,
   TransactionInstruction,
@@ -42,11 +43,7 @@ export class VirtualCurveSDK {
     this.provider = new AnchorProvider(connection, null as any, {
       commitment: 'confirmed',
     })
-    this.program = new Program(
-      Idl,
-      new PublicKey(Idl.metadata.address),
-      this.provider
-    )
+    this.program = new Program(Idl, this.provider)
   }
 
   private getEventAuthority(): PublicKey {
@@ -317,7 +314,7 @@ export class VirtualCurveSDK {
   async getPool(poolAddress: PublicKey | string) {
     const address =
       typeof poolAddress === 'string' ? new PublicKey(poolAddress) : poolAddress
-    return await this.program.account.VirtualPool.fetch(address)
+    return await this.program.account.virtualPool.fetch(address)
   }
 
   async getConfig(configAddress: PublicKey | string) {
@@ -325,7 +322,7 @@ export class VirtualCurveSDK {
       typeof configAddress === 'string'
         ? new PublicKey(configAddress)
         : configAddress
-    return await this.program.account.Config.fetch(address)
+    return await this.program.account.config.fetch(address)
   }
 
   async getClaimFeeOperator(operatorAddress: PublicKey | string) {
@@ -333,7 +330,7 @@ export class VirtualCurveSDK {
       typeof operatorAddress === 'string'
         ? new PublicKey(operatorAddress)
         : operatorAddress
-    return await this.program.account.ClaimFeeOperator.fetch(address)
+    return await this.program.account.claimFeeOperator.fetch(address)
   }
 
   async getMeteoraDammMigrationMetadata(metadataAddress: PublicKey | string) {
@@ -341,7 +338,7 @@ export class VirtualCurveSDK {
       typeof metadataAddress === 'string'
         ? new PublicKey(metadataAddress)
         : metadataAddress
-    return await this.program.account.MeteoraDammMigrationMetadata.fetch(
+    return await this.program.account.meteoraDammMigrationMetadata.fetch(
       address
     )
   }

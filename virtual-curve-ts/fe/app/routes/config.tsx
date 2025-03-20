@@ -14,12 +14,20 @@ import {
 import { useForm } from '@tanstack/react-form'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
-import CurveChart from '../components/CurveChart'
 import { useWallet } from '@jup-ag/wallet-adapter'
-import LiquidityDistributionChart from '../components/LiquidityDistributionChart'
 import { useVirtualProgram } from '../contexts/VirtualProgramContext'
-import { Keypair, SystemProgram, Transaction } from '@solana/web3.js'
+import {
+  Keypair,
+  sendAndConfirmRawTransaction,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction,
+} from '@solana/web3.js'
 import { BN } from 'bn.js'
+import TokenomicsChart from '../components/TokenomicsChart'
+import { TEMPLATES, TemplateKey } from '../lib/templates'
+import bs58 from 'bs58'
+import { useSendTransaction } from '../hooks/useSendTransaction'
 
 export const meta: MetaFunction = () => {
   return [
@@ -42,7 +50,7 @@ const configSchema = z.object({
   // Pool fees - Base fee
   baseFee: z.object({
     cliffFeeNumerator: z.number().int().min(0),
-    numberOfPeriod: z.number().int().min(1),
+    numberOfPeriod: z.number().int().min(0),
     periodFrequency: z.number().int().min(0),
     reductionFactor: z.number().int().min(0),
     feeSchedulerMode: z.number().int().min(0).max(1), // 0: FLAT, 1: DECAY
@@ -73,8 +81,8 @@ const configSchema = z.object({
   liquidityDistribution: z
     .array(
       z.object({
-        sqrtPrice: z.number().int().min(1),
-        liquidity: z.number().int().min(0),
+        sqrtPrice: z.string().min(1, 'Sqrt price must be a valid string'),
+        liquidity: z.string().min(1, 'Liquidity must be a valid string'),
       })
     )
     .min(1),
@@ -83,132 +91,20 @@ const configSchema = z.object({
 // Define the type based on the schema
 type ConfigFormValues = z.infer<typeof configSchema>
 
-// Template configurations
-const TEMPLATES: Record<string, Partial<ConfigFormValues>> = {
-  exponential: {
-    quoteMint: 'So11111111111111111111111111111111111111112', // SOL (wrapped)
-    feeClaimer: '',
-    owner: '',
-    baseFee: {
-      cliffFeeNumerator: 250, // 2.5%
-      numberOfPeriod: 10,
-      periodFrequency: 86400, // 1 day in seconds
-      reductionFactor: 10,
-      feeSchedulerMode: 1, // DECAY
-    },
-    dynamicFee: {
-      binStep: 100,
-      binStepU128: 100,
-      filterPeriod: 600, // 10 minutes
-      decayPeriod: 600, // 10 minutes
-      reductionFactor: 10,
-      maxVolatilityAccumulator: 100000,
-      variableFeeControl: 10000,
-    },
-    collectFeeMode: 1, // Both tokens
-    migrationOption: 0, // MeteoraDAMM
-    activationType: 1, // Timestamp
-    tokenDecimal: 9,
-    tokenType: 0, // SplToken
-    creatorPostMigrationFeePercentage: 0,
-    migrationQuoteThreshold: 0,
-
-    sqrtStartPrice: 1000,
-    liquidityDistribution: [
-      { sqrtPrice: 1000, liquidity: 0 },
-      { sqrtPrice: 1414, liquidity: 100000000 },
-      { sqrtPrice: 2000, liquidity: 200000000 },
-      { sqrtPrice: 2828, liquidity: 300000000 },
-      { sqrtPrice: 4000, liquidity: 400000000 },
-    ],
-  },
-  linear: {
-    quoteMint: 'So11111111111111111111111111111111111111112', // SOL (wrapped)
-    feeClaimer: '',
-    owner: '',
-    baseFee: {
-      cliffFeeNumerator: 150, // 1.5%
-      numberOfPeriod: 1,
-      periodFrequency: 0,
-      reductionFactor: 0,
-      feeSchedulerMode: 0, // FLAT
-    },
-    dynamicFee: {
-      binStep: 50,
-      binStepU128: 50,
-      filterPeriod: 300, // 5 minutes
-      decayPeriod: 300, // 5 minutes
-      reductionFactor: 5,
-      maxVolatilityAccumulator: 50000,
-      variableFeeControl: 5000,
-    },
-    collectFeeMode: 0, // QuoteToken only
-    migrationOption: 0, // MeteoraDAMM
-    activationType: 0, // Slot
-    tokenDecimal: 9,
-    tokenType: 0, // SplToken
-    creatorPostMigrationFeePercentage: 0,
-    migrationQuoteThreshold: 0,
-    sqrtStartPrice: 10000,
-    liquidityDistribution: [
-      { sqrtPrice: 10000, liquidity: 0 },
-      { sqrtPrice: 15000, liquidity: 25000000 },
-      { sqrtPrice: 20000, liquidity: 50000000 },
-      { sqrtPrice: 25000, liquidity: 75000000 },
-      { sqrtPrice: 30000, liquidity: 100000000 },
-    ],
-  },
-  custom: {
-    quoteMint: 'So11111111111111111111111111111111111111112', // SOL (wrapped)
-    feeClaimer: '',
-    owner: '',
-    baseFee: {
-      cliffFeeNumerator: 200, // 2%
-      numberOfPeriod: 5,
-      periodFrequency: 43200, // 12 hours in seconds
-      reductionFactor: 20,
-      feeSchedulerMode: 1, // DECAY
-    },
-    dynamicFee: {
-      binStep: 75,
-      binStepU128: 75,
-      filterPeriod: 450, // 7.5 minutes
-      decayPeriod: 450, // 7.5 minutes
-      reductionFactor: 15,
-      maxVolatilityAccumulator: 75000,
-      variableFeeControl: 7500,
-    },
-    collectFeeMode: 1, // Both tokens
-    migrationOption: 0, // MeteoraDAMM
-    activationType: 1, // Timestamp
-    tokenDecimal: 9,
-    tokenType: 0, // SplToken
-    creatorPostMigrationFeePercentage: 0,
-    migrationQuoteThreshold: 0,
-    sqrtStartPrice: 1000,
-    liquidityDistribution: [
-      { sqrtPrice: 1000, liquidity: 0 },
-      { sqrtPrice: 2500, liquidity: 25000000 },
-      { sqrtPrice: 5000, liquidity: 50000000 },
-      { sqrtPrice: 7500, liquidity: 75000000 },
-      { sqrtPrice: 10000, liquidity: 100000000 },
-    ],
-  },
-}
-
 export default function ConfigPage() {
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('')
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateKey | ''>('')
   const [error, setError] = useState<string>('')
   const [liquidityPoints, setLiquidityPoints] = useState<
-    { sqrtPrice: number; liquidity: number }[]
+    { sqrtPrice: string; liquidity: string }[]
   >([])
   const { publicKey, signTransaction } = useWallet()
   const virtualProgram = useVirtualProgram()
+  const { sendTransaction, isLoading } = useSendTransaction()
 
   // Initialize TanStack Form
   const form = useForm({
     defaultValues: {
-      ...TEMPLATES[selectedTemplate],
+      ...(selectedTemplate ? TEMPLATES[selectedTemplate] : {}),
       feeClaimer: publicKey?.toBase58() || '',
       owner: publicKey?.toBase58() || '',
     } as ConfigFormValues,
@@ -227,8 +123,49 @@ export default function ConfigPage() {
 
       const { connection, sdk } = virtualProgram
       const tempKeypair = Keypair.generate()
+      const params = JSON.stringify(
+        {
+          config: tempKeypair.publicKey, // we can use a create seed from the user
+          feeClaimer: value.feeClaimer,
+          owner: value.owner,
+          quoteMint: value.quoteMint,
+          payer: publicKey,
+          systemProgram: SystemProgram.programId,
+          configParameters: {
+            padding: [],
+            activationType: value.activationType,
+            collectFeeMode: value.collectFeeMode,
+            migrationOption: value.migrationOption,
+            poolFees: {
+              baseFee: {
+                cliffFeeNumerator: new BN(value.baseFee.cliffFeeNumerator),
+                numberOfPeriod: value.baseFee.numberOfPeriod,
+                periodFrequency: new BN(value.baseFee.periodFrequency),
+                reductionFactor: new BN(value.baseFee.reductionFactor),
+                feeSchedulerMode: value.baseFee.feeSchedulerMode,
+              },
+              dynamicFee: null,
+            },
+            creatorPostMigrationFeePercentage:
+              value.creatorPostMigrationFeePercentage,
+            curve: value.liquidityDistribution.map(
+              ({ sqrtPrice, liquidity }) => ({
+                sqrtPrice: new BN(sqrtPrice),
+                liquidity: new BN(liquidity),
+              })
+            ),
+            migrationQuoteThreshold: new BN(value.migrationQuoteThreshold),
+            sqrtStartPrice: new BN(value.sqrtStartPrice),
+            tokenDecimal: value.tokenDecimal,
+            tokenType: value.tokenType,
+          },
+        },
+        null,
+        2
+      )
+      console.log(params)
       const ix = await sdk.createConfig({
-        config: tempKeypair.publicKey, // we can use a create seed from the user
+        config: tempKeypair.publicKey,
         feeClaimer: value.feeClaimer,
         owner: value.owner,
         quoteMint: value.quoteMint,
@@ -247,16 +184,7 @@ export default function ConfigPage() {
               reductionFactor: new BN(value.baseFee.reductionFactor),
               feeSchedulerMode: value.baseFee.feeSchedulerMode,
             },
-            dynamicFee: {
-              binStep: value.dynamicFee.binStep,
-              binStepU128: new BN(value.dynamicFee.binStepU128),
-              filterPeriod: value.dynamicFee.filterPeriod,
-              decayPeriod: value.dynamicFee.decayPeriod,
-              reductionFactor: value.dynamicFee.reductionFactor,
-              maxVolatilityAccumulator:
-                value.dynamicFee.maxVolatilityAccumulator,
-              variableFeeControl: value.dynamicFee.variableFeeControl,
-            },
+            dynamicFee: null,
           },
           creatorPostMigrationFeePercentage:
             value.creatorPostMigrationFeePercentage,
@@ -274,12 +202,23 @@ export default function ConfigPage() {
       })
 
       const blockhash = await connection.getLatestBlockhash()
-      const transaction = new Transaction({
+      let transaction = new Transaction({
         feePayer: publicKey,
         ...blockhash,
       }).add(ix)
 
-      signTransaction(transaction)
+      transaction.sign(tempKeypair)
+
+      // Use the sendTransaction hook instead of directly sending and confirming
+      await sendTransaction(transaction, connection, {
+        onSuccess: (signature) => {
+          console.log('Config created successfully, tx:', signature)
+        },
+        onError: (err) => {
+          console.error('Failed to create config:', err)
+          setError(err.message)
+        },
+      })
     },
     validators: {
       onSubmit: configSchema,
@@ -295,18 +234,20 @@ export default function ConfigPage() {
 
   // Handle template selection
   const handleTemplateSelect = (template: string) => {
-    setSelectedTemplate(template)
+    setSelectedTemplate(template as TemplateKey)
     // Update the form values with the template values
     form.reset({
       ...form.state.values,
-      ...TEMPLATES[template],
+      ...TEMPLATES[template as TemplateKey],
       feeClaimer: publicKey?.toBase58() || '',
       owner: publicKey?.toBase58() || '',
     })
 
     // Directly update the liquidity points for immediate chart update
-    if (TEMPLATES[template]?.liquidityDistribution) {
-      setLiquidityPoints(TEMPLATES[template].liquidityDistribution)
+    if (TEMPLATES[template as TemplateKey]?.liquidityDistribution) {
+      setLiquidityPoints(
+        TEMPLATES[template as TemplateKey].liquidityDistribution
+      )
     }
 
     setError('')
@@ -318,12 +259,12 @@ export default function ConfigPage() {
     const liquidityDistribution = [...currentValues.liquidityDistribution]
     const lastPoint = liquidityDistribution[liquidityDistribution.length - 1]
 
-    const newSqrtPrice = lastPoint
-      ? Math.round(lastPoint.sqrtPrice * 1.5)
-      : 1000
-    const newLiquidity = lastPoint
-      ? Math.round(lastPoint.liquidity * 1.5)
-      : 100000000
+    // Convert to number for calculations, but store as string
+    const lastSqrtPrice = lastPoint ? Number(lastPoint.sqrtPrice) : 1000
+    const lastLiquidity = lastPoint ? Number(lastPoint.liquidity) : 100000000
+
+    const newSqrtPrice = Math.round(lastSqrtPrice * 1.5).toString()
+    const newLiquidity = Math.round(lastLiquidity * 1.5).toString()
 
     const newDistribution = [
       ...liquidityDistribution,
@@ -406,14 +347,20 @@ export default function ConfigPage() {
               </div>
               <h3 className="text-xl font-bold mb-2">Pump.fun Style</h3>
               <p className="text-gray-300 text-sm mb-4">
-                Exponential price growth similar to pump.fun
+                1% fee with 69k liquidity cap like pump.fun
               </p>
               <div className="h-24 bg-gradient-to-tr from-pink-500/5 to-purple-500/5 rounded-lg flex items-center justify-center">
-                <CurveChart
-                  curveType="exponential"
-                  initialPrice={0.000001}
-                  maxSupply={1000000000}
+                <TokenomicsChart
+                  liquidityPoints={
+                    TEMPLATES.exponential.liquidityDistribution || []
+                  }
                   height={96}
+                  baseDecimals={form.state.values.tokenDecimal || 6}
+                  showLiquidity={false}
+                  showPrice={true}
+                  lineColor="#ec4899" // pink-500
+                  showAnalytics={false} // Don't show analytics in template selection
+                  showExplanation={false} // Don't show explanation in template selection
                 />
               </div>
             </div>
@@ -447,11 +394,15 @@ export default function ConfigPage() {
                 Linear price growth for traditional token launches
               </p>
               <div className="h-24 bg-gradient-to-tr from-blue-500/5 to-teal-500/5 rounded-lg flex items-center justify-center">
-                <CurveChart
-                  curveType="linear"
-                  initialPrice={0.0001}
-                  maxSupply={100000000}
+                <TokenomicsChart
+                  liquidityPoints={TEMPLATES.linear.liquidityDistribution || []}
                   height={96}
+                  baseDecimals={form.state.values.tokenDecimal || 6}
+                  showLiquidity={false}
+                  showPrice={true}
+                  lineColor="#3b82f6" // blue-500
+                  showAnalytics={false} // Don't show analytics in template selection
+                  showExplanation={false} // Don't show explanation in template selection
                 />
               </div>
             </div>
@@ -482,21 +433,18 @@ export default function ConfigPage() {
               </div>
               <h3 className="text-xl font-bold mb-2">Custom Curve</h3>
               <p className="text-gray-300 text-sm mb-4">
-                Fully customizable price curve
+                Variable curve with multi-phase price behavior
               </p>
               <div className="h-24 bg-gradient-to-tr from-purple-500/5 to-indigo-500/5 rounded-lg flex items-center justify-center">
-                <CurveChart
-                  curveType="custom"
-                  initialPrice={0.0001}
-                  maxSupply={100000000}
-                  customPoints={[
-                    { x: 0, y: 0.0001 },
-                    { x: 25, y: 0.0002 },
-                    { x: 50, y: 0.0005 },
-                    { x: 75, y: 0.001 },
-                    { x: 100, y: 0.0025 },
-                  ]}
+                <TokenomicsChart
+                  liquidityPoints={TEMPLATES.custom.liquidityDistribution || []}
                   height={96}
+                  baseDecimals={form.state.values.tokenDecimal || 6}
+                  showLiquidity={false}
+                  showPrice={true}
+                  lineColor="#a855f7" // purple-500
+                  showAnalytics={false} // Don't show analytics in template selection
+                  showExplanation={false} // Don't show explanation in template selection
                 />
               </div>
             </div>
@@ -1017,12 +965,24 @@ export default function ConfigPage() {
                 <h3 className="text-xl font-semibold mb-4">
                   Liquidity Distribution Preview
                 </h3>
-                <div className="bg-white/5 rounded-lg p-4 h-64">
+                <div className="bg-white/5 rounded-lg p-4">
                   {liquidityPoints.length > 0 && (
                     <div className="h-full">
-                      <LiquidityDistributionChart
+                      <TokenomicsChart
                         liquidityPoints={liquidityPoints}
                         height={220}
+                        baseDecimals={form.state.values.tokenDecimal || 6}
+                        showLiquidity={true}
+                        showPrice={true}
+                        lineColor={
+                          selectedTemplate === 'exponential'
+                            ? '#ec4899'
+                            : selectedTemplate === 'custom'
+                            ? '#a855f7'
+                            : '#3b82f6'
+                        }
+                        showAnalytics={true}
+                        showExplanation={true}
                       />
                     </div>
                   )}
@@ -1050,7 +1010,7 @@ export default function ConfigPage() {
                     <>
                       {field.state.value.map(
                         (
-                          item: { sqrtPrice: number; liquidity: number },
+                          item: { sqrtPrice: string; liquidity: string },
                           index: number
                         ) => (
                           <div
@@ -1062,14 +1022,14 @@ export default function ConfigPage() {
                                 Sqrt Price {index + 1}
                               </h3>
                               <input
-                                type="number"
+                                type="text"
                                 value={item.sqrtPrice}
                                 onChange={(e) => {
-                                  const newValue = parseInt(e.target.value, 10)
+                                  const newValue = e.target.value
                                   const newDistribution = [...field.state.value]
                                   newDistribution[index] = {
                                     ...newDistribution[index],
-                                    sqrtPrice: isNaN(newValue) ? 0 : newValue,
+                                    sqrtPrice: newValue,
                                   }
                                   field.handleChange(newDistribution)
 
@@ -1095,14 +1055,14 @@ export default function ConfigPage() {
                                 )}
                               </div>
                               <input
-                                type="number"
+                                type="text"
                                 value={item.liquidity}
                                 onChange={(e) => {
-                                  const newValue = parseInt(e.target.value, 10)
+                                  const newValue = e.target.value
                                   const newDistribution = [...field.state.value]
                                   newDistribution[index] = {
                                     ...newDistribution[index],
-                                    liquidity: isNaN(newValue) ? 0 : newValue,
+                                    liquidity: newValue,
                                   }
                                   field.handleChange(newDistribution)
 
@@ -1122,9 +1082,16 @@ export default function ConfigPage() {
 
               <button
                 type="submit"
-                className="w-full bg-gradient-to-r from-pink-500 to-purple-500 px-6 py-3 rounded-full font-medium hover:opacity-90 transition"
+                disabled={isLoading}
+                className={`w-full bg-gradient-to-r from-pink-500 to-purple-500 px-6 py-3 rounded-full font-medium transition ${
+                  isLoading
+                    ? 'opacity-70 cursor-not-allowed'
+                    : 'hover:opacity-90'
+                }`}
               >
-                Create Pool Configuration
+                {isLoading
+                  ? 'Creating Configuration...'
+                  : 'Create Pool Configuration'}
               </button>
             </form>
           </div>
