@@ -5,6 +5,7 @@ import {
   Transaction,
   TransactionInstruction,
   sendAndConfirmTransaction,
+  type GetProgramAccountsFilter,
 } from '@solana/web3.js'
 import { Program, AnchorProvider } from '@coral-xyz/anchor'
 import { Idl } from './idl'
@@ -32,6 +33,8 @@ import { BN } from 'bn.js'
 type AccountsWithOptionalFields<T, K extends keyof T> = {
   [P in keyof T]: P extends K ? T[P] | null : T[P]
 }
+
+export const FEE_DENOMINATOR = 1_000_000_000
 
 export class VirtualCurveSDK {
   private program: VirtualCurveProgram
@@ -341,5 +344,51 @@ export class VirtualCurveSDK {
     return await this.program.account.meteoraDammMigrationMetadata.fetch(
       address
     )
+  }
+
+  // /**
+  //  * Retrieves pools with optional filtering by owner
+  //  * @param owner Optional PublicKey or string to filter pools by owner
+  //  * @returns Array of pool accounts with their addresses
+  //  */
+  // async getPools(owner?: PublicKey | string) {
+  //   const filters = []
+
+  //   if (owner) {
+  //     const ownerKey = typeof owner === 'string' ? new PublicKey(owner) : owner
+  //     filters.push({
+  //       memcmp: {
+  //         offset: 8, // Adjust this offset based on the actual position of the owner field
+  //         bytes: ownerKey.toBase58(),
+  //       },
+  //     })
+  //   }
+
+  //   return await this.program.account.virtualPool.all(filters)
+  // }
+
+  /**
+   * Retrieves configs with optional filtering by owner
+   * @param owner Optional PublicKey or string to filter configs by owner
+   * @returns Array of config accounts with their addresses
+   */
+  async getPoolConfigs(owner?: PublicKey | string) {
+    const filters: GetProgramAccountsFilter[] = []
+
+    if (owner) {
+      const ownerKey = typeof owner === 'string' ? new PublicKey(owner) : owner
+      console.log({
+        owner,
+      })
+      filters.push({
+        memcmp: {
+          offset: 72,
+          bytes: ownerKey.toBase58(),
+          encoding: 'base58',
+        },
+      })
+    }
+
+    return await this.program.account.poolConfig.all(filters)
   }
 }

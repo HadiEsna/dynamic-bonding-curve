@@ -19,6 +19,7 @@ import WalletNotification from './components/WalletNotification'
 import { VirtualProgramProvider } from './contexts/VirtualProgramContext'
 import { Toaster } from 'sonner'
 import { Buffer } from 'buffer'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 globalThis.Buffer = Buffer
 export const links: LinksFunction = () => [
@@ -42,6 +43,8 @@ export async function loader({ context }: LoaderFunctionArgs) {
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  const queryClient = useMemo(() => new QueryClient(), [])
+
   const wallets: Adapter[] = useMemo(() => {
     return [new PhantomWalletAdapter(), new SolflareWalletAdapter()].filter(
       (item) => item && item.name && item.icon
@@ -59,28 +62,30 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
-        <VirtualProgramProvider rpcEndpoint={data.RPC_ENDPOINT!}>
-          <UnifiedWalletProvider
-            wallets={wallets}
-            config={{
-              env: 'mainnet-beta',
-              autoConnect: true,
-              metadata: {
-                name: 'UnifiedWallet',
-                description: 'UnifiedWallet',
-                url: 'https://jup.ag',
-                iconUrls: ['https://jup.ag/favicon.ico'],
-              },
-              notificationCallback: WalletNotification,
-              theme: 'dark',
-              lang: 'en',
-            }}
-          >
-            <Toaster />
+        <QueryClientProvider client={queryClient}>
+          <VirtualProgramProvider rpcEndpoint={data.RPC_ENDPOINT!}>
+            <UnifiedWalletProvider
+              wallets={wallets}
+              config={{
+                env: 'mainnet-beta',
+                autoConnect: true,
+                metadata: {
+                  name: 'UnifiedWallet',
+                  description: 'UnifiedWallet',
+                  url: 'https://jup.ag',
+                  iconUrls: ['https://jup.ag/favicon.ico'],
+                },
+                notificationCallback: WalletNotification,
+                theme: 'dark',
+                lang: 'en',
+              }}
+            >
+              <Toaster />
 
-            {children}
-          </UnifiedWalletProvider>
-        </VirtualProgramProvider>
+              {children}
+            </UnifiedWalletProvider>
+          </VirtualProgramProvider>
+        </QueryClientProvider>
 
         <ScrollRestoration />
         <Scripts />

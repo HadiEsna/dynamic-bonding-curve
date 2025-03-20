@@ -12,10 +12,14 @@ import {
   Info,
   Loader2,
 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
 import TokenomicsChart from '../components/TokenomicsChart'
 import { TEMPLATES } from '../lib/templates'
+import { useVirtualProgram } from '~/contexts/VirtualProgramContext'
+import { useWallet } from '@solana/wallet-adapter-react'
+import { FEE_DENOMINATOR } from '../../../lib'
 
 export const meta: MetaFunction = () => {
   return [
@@ -85,25 +89,35 @@ interface FormValues extends PoolFormValues {
   customCurveParams?: CustomCurveParams
 }
 
-// Define the saved config type
-interface SavedConfig {
-  id: string
-  name: string
-  description?: string
-  curveType: 'exponential' | 'linear' | 'custom'
-  initialPrice: number
-  maxSupply: number
-  creatorFee: number
-  tradingFee: number
-}
+// Define the saved config type - updated to match what we'll get from the SDK
 
 export default function CreatePool() {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const configId = searchParams.get('config')
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [error, setError] = useState('')
+
+  const { sdk } = useVirtualProgram()
+  const wallet = useWallet()
+
+  // Query to fetch configs owned by the current wallet
+  const { data: userConfigs, isLoading: isLoadingConfigs } = useQuery({
+    queryKey: ['configs', wallet.publicKey?.toString()],
+    queryFn: async () => {
+      if (!wallet.publicKey || !sdk) return []
+
+      const configs = await sdk.getPoolConfigs(wallet.publicKey)
+      console.log({ configs })
+
+      return configs.map((config) => ({
+        id: config.publicKey.toString(),
+        account: config.account,
+      }))
+    },
+    enabled: !!wallet.publicKey && !!sdk,
+  })
 
   // Default form values
   const [formValues, setFormValues] = useState<FormValues>({
@@ -131,46 +145,31 @@ export default function CreatePool() {
     },
   })
 
-  // Mock saved configurations (in a real app, this would come from a database or local storage)
-  const savedConfigs: SavedConfig[] = [
-    {
-      id: '1',
-      name: 'Pump.fun Style',
-      description: 'Exponential price growth similar to pump.fun',
-      curveType: 'exponential',
-      initialPrice: 0.000001,
-      maxSupply: 1000000000,
-      creatorFee: 2.5,
-      tradingFee: 1,
-    },
-    {
-      id: '2',
-      name: 'Standard Launch',
-      description: 'Linear price growth for traditional token launches',
-      curveType: 'linear',
-      initialPrice: 0.0001,
-      maxSupply: 100000000,
-      creatorFee: 1.5,
-      tradingFee: 0.5,
-    },
-  ]
-
   // Load configuration if configId is provided
   useEffect(() => {
-    if (configId) {
-      const config = savedConfigs.find((c) => c.id === configId)
+    if (configId && userConfigs) {
+      const config = userConfigs.find((c) => c.id === configId)
       if (config) {
+        // Map from SDK config to form values
+        // This will need to be adjusted based on the actual data structure
+        const tradingFeePercentage =
+          (Number(config.account.poolFees.baseFee.cliffFeeNumerator) /
+            Number(FEE_DENOMINATOR)) *
+          100
+
+        const creatorFeePercentage = 1 // You'll need to extract this from your config data
+
         setFormValues((prev) => ({
           ...prev,
-          initialPrice: config.initialPrice,
-          maxSupply: config.maxSupply,
-          creatorFee: config.creatorFee,
-          tradingFee: config.tradingFee,
-          curveType: config.curveType,
+          initialPrice: 0.000001, // Set based on your config data
+          maxSupply: 1000000000, // Set based on your config data
+          creatorFee: creatorFeePercentage,
+          tradingFee: tradingFeePercentage,
+          curveType: 'exponential', // Set based on your config data
         }))
       }
     }
-  }, [configId])
+  }, [configId, userConfigs])
 
   // Handle form submission
   const handleSubmit = (e: React.FormEvent) => {
@@ -211,6 +210,118 @@ export default function CreatePool() {
     }))
   }
 
+  // Add a section to display the user's configs
+  const renderUserConfigs = () => {
+    if (isLoadingConfigs) {
+      return (
+        <div className="text-center py-4">
+          <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+        </div>
+      )
+    }
+
+    if (!userConfigs || userConfigs.length === 0) {
+      return (
+        <div className="text-center py-4 text-gray-400">
+          No configurations found.{' '}
+          <Link
+            to="/config"
+            className="text-purple-500 underline cursor-pointer"
+          >
+            Create your first one!
+          </Link>
+        </div>
+      )
+    }
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+        {userConfigs.map((config) => {
+          // Extract the actual liquidity points from the config's curve data
+          const liquidityPoints =
+            config.account.curve?.map((point) => ({
+              sqrtPrice: point.sqrtPrice.toString(),
+              liquidity: point.liquidity.toString(),
+            })) || []
+
+          const feePercentage =
+            (Number(config.account.poolFees.baseFee.cliffFeeNumerator) /
+              Number(FEE_DENOMINATOR)) *
+            100
+
+          // Determine color based on fee percentage
+          const lineColor = feePercentage > 2 ? '#ec4899' : '#3b82f6'
+
+          // Check if this config is currently selected
+          const isSelected = config.id === configId
+
+          return (
+            <div
+              key={config.id}
+              className={`${
+                isSelected
+                  ? 'bg-purple-800/30 border-purple-500'
+                  : 'bg-white/10 border-white/20 hover:border-purple-500/50'
+              } rounded-lg border transition flex flex-col h-full relative overflow-hidden`}
+            >
+              {isSelected && (
+                <div className="absolute top-0 right-0 bg-purple-500 text-white text-xs font-medium py-1 px-2 rounded-bl-md">
+                  Selected
+                </div>
+              )}
+
+              <div className="p-4 pb-3 relative z-10">
+                <div className="flex justify-between items-start">
+                  <h3 className="font-medium text-white mb-4">
+                    Config: {config.id.substring(0, 8)}...
+                  </h3>
+                </div>
+                <TokenomicsChart
+                  liquidityPoints={liquidityPoints}
+                  height={100}
+                  baseDecimals={config.account.tokenDecimal}
+                  showAnalytics={false}
+                  showLiquidity={false}
+                  showExplanation={false}
+                  lineColor={lineColor}
+                />
+
+                <div className="text-sm text-gray-300 space-y-2 mb-4">
+                  <p className="flex justify-between items-center">
+                    <span>Trading Fee:</span>
+                    <span className="font-medium text-white">
+                      {feePercentage.toFixed(2)}%
+                    </span>
+                  </p>
+                  <p className="flex justify-between items-center">
+                    <span>Fee Schedule:</span>
+                    <span className="font-medium text-white">
+                      {config.account.poolFees.baseFee.feeSchedulerMode === 0
+                        ? 'Fixed'
+                        : 'Dynamic'}
+                    </span>
+                  </p>
+                </div>
+              </div>
+
+              <Link
+                to={`/create?config=${config.id}`}
+                preventScrollReset
+                className={`mt-auto ${
+                  isSelected
+                    ? 'bg-purple-600 hover:bg-purple-700'
+                    : 'bg-purple-600/30 hover:bg-purple-600/50'
+                } transition py-3 text-center text-sm font-medium w-full rounded-b-lg relative z-10`}
+              >
+                {isSelected ? 'Selected Configuration' : 'Use This Config'}
+              </Link>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-900 to-purple-900 text-white">
       {/* Header */}
@@ -233,6 +344,16 @@ export default function CreatePool() {
             <span>Back to Configurations</span>
           </Link>
         </div>
+
+        {/* Your Saved Configurations Section */}
+        {wallet.connected && (
+          <div className="bg-white/5 rounded-xl p-6 backdrop-blur-sm border border-white/10 mb-8">
+            <h2 className="text-xl font-bold mb-4">
+              Your Saved Configurations
+            </h2>
+            {renderUserConfigs()}
+          </div>
+        )}
 
         {isSuccess ? (
           <div className="bg-white/5 rounded-xl p-8 backdrop-blur-sm border border-white/10 text-center">
@@ -351,175 +472,6 @@ export default function CreatePool() {
                     </button>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Pool Configuration Section */}
-            <div className="bg-white/5 rounded-xl p-8 backdrop-blur-sm border border-white/10">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold">Pool Configuration</h2>
-                {configId && (
-                  <div className="bg-purple-500/20 px-3 py-1 rounded-full text-sm text-purple-300 flex items-center gap-1">
-                    <Info className="w-4 h-4" />
-                    <span>Using saved configuration</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <div className="mb-4">
-                    <label
-                      htmlFor="initialPrice"
-                      className="block text-sm font-medium text-gray-300 mb-1"
-                    >
-                      Initial Price (SOL)*
-                    </label>
-                    <input
-                      id="initialPrice"
-                      name="initialPrice"
-                      type="number"
-                      step="0.000001"
-                      className="w-full p-3 bg-white/5 border border-white/10 rounded-lg text-white"
-                      value={formValues.initialPrice}
-                      onChange={handleInputChange}
-                      required
-                      min="0.000001"
-                    />
-                  </div>
-
-                  <div className="mb-4">
-                    <label
-                      htmlFor="maxSupply"
-                      className="block text-sm font-medium text-gray-300 mb-1"
-                    >
-                      Maximum Supply*
-                    </label>
-                    <input
-                      id="maxSupply"
-                      name="maxSupply"
-                      type="number"
-                      className="w-full p-3 bg-white/5 border border-white/10 rounded-lg text-white"
-                      value={formValues.maxSupply}
-                      onChange={handleInputChange}
-                      required
-                      min="1"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="mb-4">
-                    <label
-                      htmlFor="curveType"
-                      className="block text-sm font-medium text-gray-300 mb-1"
-                    >
-                      Curve Type*
-                    </label>
-                    <select
-                      id="curveType"
-                      name="curveType"
-                      className="w-full p-3 bg-white/5 border border-white/10 rounded-lg text-white"
-                      value={formValues.curveType}
-                      onChange={handleInputChange}
-                      required
-                    >
-                      <option value="exponential">
-                        Exponential (Pump.fun Style)
-                      </option>
-                      <option value="linear">Linear (Standard Launch)</option>
-                      <option value="custom">Custom Curve</option>
-                    </select>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="mb-4">
-                      <label
-                        htmlFor="creatorFee"
-                        className="block text-sm font-medium text-gray-300 mb-1"
-                      >
-                        Creator Fee (%)*
-                      </label>
-                      <input
-                        id="creatorFee"
-                        name="creatorFee"
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        max="10"
-                        className="w-full p-3 bg-white/5 border border-white/10 rounded-lg text-white"
-                        value={formValues.creatorFee}
-                        onChange={handleInputChange}
-                        required
-                      />
-                    </div>
-
-                    <div className="mb-4">
-                      <label
-                        htmlFor="tradingFee"
-                        className="block text-sm font-medium text-gray-300 mb-1"
-                      >
-                        Trading Fee (%)*
-                      </label>
-                      <input
-                        id="tradingFee"
-                        name="tradingFee"
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        max="5"
-                        className="w-full p-3 bg-white/5 border border-white/10 rounded-lg text-white"
-                        value={formValues.tradingFee}
-                        onChange={handleInputChange}
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Curve Visualization */}
-              <div className="mt-6 p-6 bg-white/5 border border-white/10 rounded-xl">
-                <h3 className="text-lg font-semibold mb-4">
-                  Price Curve Preview
-                </h3>
-                <div className="h-64 rounded-lg flex items-center justify-center">
-                  <TokenomicsChart
-                    liquidityPoints={
-                      formValues.curveType === 'custom' &&
-                      formValues.customCurveParams
-                        ? formValues.customCurveParams.points.map((point) => ({
-                            sqrtPrice: Math.sqrt(point.y * Math.pow(10, 9)), // Convert price to sqrtPrice
-                            liquidity: Math.round(
-                              (point.x * formValues.maxSupply) / 100
-                            ), // Convert percentage to tokens
-                          }))
-                        : formValues.curveType === 'exponential'
-                        ? TEMPLATES.exponential.liquidityDistribution || []
-                        : TEMPLATES.linear.liquidityDistribution || []
-                    }
-                    height={256}
-                    decimals={9} // Use default decimal places
-                    showLiquidity={false}
-                    lineColor={
-                      formValues.curveType === 'exponential'
-                        ? '#ec4899'
-                        : formValues.curveType === 'custom'
-                        ? '#a855f7'
-                        : '#3b82f6'
-                    }
-                  />
-                </div>
-                <p className="text-center text-gray-400 text-sm mt-4">
-                  This visualization shows how the token price will change as
-                  more tokens are sold.
-                  {formValues.curveType === 'exponential' &&
-                    ' The exponential curve creates rapid price growth as supply decreases.'}
-                  {formValues.curveType === 'linear' &&
-                    ' The linear curve creates steady, predictable price growth.'}
-                  {formValues.curveType === 'custom' &&
-                    ' The custom curve allows for precise control over price points.'}
-                </p>
               </div>
             </div>
 
