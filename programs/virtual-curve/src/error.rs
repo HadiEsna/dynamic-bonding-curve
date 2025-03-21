@@ -99,4 +99,7 @@ pub enum PoolError {
 
     #[msg("Total base token is exceeded max supply")]
     TotalBaseTokenExceedMaxSupply,
+
+    #[msg("Unsupport native mint token 2022")]
+    UnsupportNativeMintToken2022,
 }

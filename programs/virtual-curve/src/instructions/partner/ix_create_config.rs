@@ -3,7 +3,7 @@ use anchor_spl::token_interface::Mint;
 
 use crate::{
     activation_handler::ActivationType,
-    constants::{DEFAULT_QUOTE_MINTS, DEFAULT_QUOTE_THRESHOLD, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
+    constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     params::{
         fee_parameters::PoolFeeParamters,
         liquidity_distribution::{
@@ -11,6 +11,7 @@ use crate::{
         },
     },
     state::{CollectFeeMode, MigrationOption, PoolConfig, TokenType},
+    token::is_supported_quote_mint,
     EvtCreateConfig, PoolError,
 };
 
@@ -31,7 +32,7 @@ pub struct ConfigParameters {
 }
 
 impl ConfigParameters {
-    pub fn validate(&self, quote_mint: Pubkey) -> Result<()> {
+    pub fn validate(&self) -> Result<()> {
         // validate fee
         self.pool_fees.validate()?;
 
@@ -69,22 +70,6 @@ impl ConfigParameters {
             self.creator_post_migration_fee_percentage <= 100,
             PoolError::InvalidFeePercentage
         );
-
-        // validate total_supply/migration_quote_threshold and curve and quote_mint
-        require!(
-            is_whitelisted_quote_token(&quote_mint),
-            PoolError::InvalidQuoteMint
-        );
-        // validate quote threshold
-        for i in 0..DEFAULT_QUOTE_MINTS.len() {
-            if DEFAULT_QUOTE_MINTS[i].eq(&quote_mint) {
-                // TODO validate upper?
-                require!(
-                    self.migration_quote_threshold >= DEFAULT_QUOTE_THRESHOLD[i],
-                    PoolError::InvalidQuoteThreshold
-                );
-            }
-        }
 
         require!(
             self.sqrt_start_price >= MIN_SQRT_PRICE && self.sqrt_start_price < MAX_SQRT_PRICE,
@@ -144,7 +129,9 @@ pub fn handle_create_config(
     ctx: Context<CreateConfigCtx>,
     config_parameters: ConfigParameters,
 ) -> Result<()> {
-    config_parameters.validate(ctx.accounts.quote_mint.key())?;
+    config_parameters.validate()?;
+    // validate quote mint
+    is_supported_quote_mint(&ctx.accounts.quote_mint)?;
     let ConfigParameters {
         pool_fees,
         collect_fee_mode,
@@ -208,13 +195,4 @@ pub fn handle_create_config(
     });
 
     Ok(())
-}
-
-fn is_whitelisted_quote_token(mint: &Pubkey) -> bool {
-    for i in 0..DEFAULT_QUOTE_MINTS.len() {
-        if DEFAULT_QUOTE_MINTS[i].eq(mint) {
-            return true;
-        }
-    }
-    false
 }
