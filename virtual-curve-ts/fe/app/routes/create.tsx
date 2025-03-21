@@ -284,6 +284,7 @@ export default function CreatePool() {
                   showLiquidity={false}
                   showExplanation={false}
                   lineColor={lineColor}
+                  migrationQuoteThreshold={config.account.migrationQuoteThreshold.toNumber()}
                 />
 
                 <div className="text-sm text-gray-300 space-y-2 mb-4">

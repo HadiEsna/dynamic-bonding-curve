@@ -69,7 +69,7 @@ export const TEMPLATES: Record<
     liquidityDistribution: [
       {
         sqrtPrice: '79226673521066979257578248091',
-        liquidity: '50000000000000000000000',
+        liquidity: '50000000000000000000000000000',
       }, // 10x more liquidity
     ],
   },

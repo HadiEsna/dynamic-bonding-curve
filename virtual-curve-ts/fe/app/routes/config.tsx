@@ -11,7 +11,7 @@ import {
   Check,
   AlertCircle,
 } from 'lucide-react'
-import { useForm } from '@tanstack/react-form'
+import { useForm, FormApi } from '@tanstack/react-form'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
 import { useWallet } from '@jup-ag/wallet-adapter'
@@ -91,12 +91,46 @@ const configSchema = z.object({
 // Define the type based on the schema
 type ConfigFormValues = z.infer<typeof configSchema>
 
+interface ChartDisplayProps {
+  form: any // TODO type this
+  selectedTemplate: string
+}
+
+function ChartDisplay({ form, selectedTemplate }: ChartDisplayProps) {
+  return (
+    <form.Subscribe
+      selector={(state: any) => ({
+        liquidityPoints: state.values.liquidityDistribution || [],
+        migrationQuoteThreshold: state.values.migrationQuoteThreshold || 0,
+        tokenDecimal: state.values.tokenDecimal || 6,
+      })}
+    >
+      {(values: any) => (
+        <TokenomicsChart
+          liquidityPoints={values.liquidityPoints}
+          height={220}
+          baseDecimals={values.tokenDecimal}
+          showLiquidity={true}
+          showPrice={true}
+          lineColor={
+            selectedTemplate === 'exponential'
+              ? '#ec4899'
+              : selectedTemplate === 'custom'
+              ? '#a855f7'
+              : '#3b82f6'
+          }
+          showAnalytics={true}
+          showExplanation={true}
+          migrationQuoteThreshold={values.migrationQuoteThreshold}
+        />
+      )}
+    </form.Subscribe>
+  )
+}
+
 export default function ConfigPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateKey | ''>('')
   const [error, setError] = useState<string>('')
-  const [liquidityPoints, setLiquidityPoints] = useState<
-    { sqrtPrice: string; liquidity: string }[]
-  >([])
   const { publicKey, signTransaction } = useWallet()
   const virtualProgram = useVirtualProgram()
   const { sendTransaction, isLoading } = useSendTransaction()
@@ -225,13 +259,6 @@ export default function ConfigPage() {
     },
   })
 
-  // Watch for liquidityDistribution changes
-  useEffect(() => {
-    if (form.state.values.liquidityDistribution) {
-      setLiquidityPoints(form.state.values.liquidityDistribution)
-    }
-  }, [form.state.values.liquidityDistribution])
-
   // Handle template selection
   const handleTemplateSelect = (template: string) => {
     setSelectedTemplate(template as TemplateKey)
@@ -242,13 +269,6 @@ export default function ConfigPage() {
       feeClaimer: publicKey?.toBase58() || '',
       owner: publicKey?.toBase58() || '',
     })
-
-    // Directly update the liquidity points for immediate chart update
-    if (TEMPLATES[template as TemplateKey]?.liquidityDistribution) {
-      setLiquidityPoints(
-        TEMPLATES[template as TemplateKey].liquidityDistribution
-      )
-    }
 
     setError('')
   }
@@ -272,9 +292,6 @@ export default function ConfigPage() {
     ]
 
     form.setFieldValue('liquidityDistribution', newDistribution)
-
-    // Update state directly for immediate chart update
-    setLiquidityPoints(newDistribution)
   }
 
   // Remove a liquidity distribution point
@@ -289,9 +306,6 @@ export default function ConfigPage() {
     newDistribution.splice(index, 1)
 
     form.setFieldValue('liquidityDistribution', newDistribution)
-
-    // Update state directly for immediate chart update
-    setLiquidityPoints(newDistribution)
   }
 
   return (
@@ -361,12 +375,15 @@ export default function ConfigPage() {
                   lineColor="#ec4899" // pink-500
                   showAnalytics={false} // Don't show analytics in template selection
                   showExplanation={false} // Don't show explanation in template selection
+                  migrationQuoteThreshold={
+                    TEMPLATES.exponential.migrationQuoteThreshold
+                  }
                 />
               </div>
             </div>
 
             {/* Standard Launch Template */}
-            <div
+            {/* <div
               className={`bg-white/5 rounded-xl p-6 backdrop-blur-sm hover:bg-white/10 transition border cursor-pointer ${
                 selectedTemplate === 'linear'
                   ? 'border-blue-500'
@@ -405,10 +422,10 @@ export default function ConfigPage() {
                   showExplanation={false} // Don't show explanation in template selection
                 />
               </div>
-            </div>
+            </div> */}
 
             {/* Custom Curve Template */}
-            <div
+            {/* <div
               className={`bg-white/5 rounded-xl p-6 backdrop-blur-sm hover:bg-white/10 transition border cursor-pointer ${
                 selectedTemplate === 'custom'
                   ? 'border-purple-500'
@@ -447,7 +464,7 @@ export default function ConfigPage() {
                   showExplanation={false} // Don't show explanation in template selection
                 />
               </div>
-            </div>
+            </div> */}
           </div>
         </div>
 
@@ -966,26 +983,10 @@ export default function ConfigPage() {
                   Liquidity Distribution Preview
                 </h3>
                 <div className="bg-white/5 rounded-lg p-4">
-                  {liquidityPoints.length > 0 && (
-                    <div className="h-full">
-                      <TokenomicsChart
-                        liquidityPoints={liquidityPoints}
-                        height={220}
-                        baseDecimals={form.state.values.tokenDecimal || 6}
-                        showLiquidity={true}
-                        showPrice={true}
-                        lineColor={
-                          selectedTemplate === 'exponential'
-                            ? '#ec4899'
-                            : selectedTemplate === 'custom'
-                            ? '#a855f7'
-                            : '#3b82f6'
-                        }
-                        showAnalytics={true}
-                        showExplanation={true}
-                      />
-                    </div>
-                  )}
+                  <ChartDisplay
+                    form={form}
+                    selectedTemplate={selectedTemplate}
+                  />
                 </div>
               </div>
 
@@ -1032,9 +1033,6 @@ export default function ConfigPage() {
                                     sqrtPrice: newValue,
                                   }
                                   field.handleChange(newDistribution)
-
-                                  // Update state directly for immediate chart update
-                                  setLiquidityPoints(newDistribution)
                                 }}
                                 className="w-full bg-white/10 p-2 rounded-lg"
                               />
@@ -1065,9 +1063,6 @@ export default function ConfigPage() {
                                     liquidity: newValue,
                                   }
                                   field.handleChange(newDistribution)
-
-                                  // Update state directly for immediate chart update
-                                  setLiquidityPoints(newDistribution)
                                 }}
                                 className="w-full bg-white/10 p-2 rounded-lg"
                               />
