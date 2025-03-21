@@ -1,8 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_lang::system_program::{create_account, transfer, CreateAccount, Transfer};
 use anchor_lang::{prelude::InterfaceAccount, solana_program::program::invoke_signed};
-use anchor_spl::token_2022::spl_token_2022::extension::metadata_pointer;
-use anchor_spl::token_2022::{initialize_mint2, InitializeMint2};
 use anchor_spl::{
     token::Token,
     token_2022::spl_token_2022::{
@@ -16,7 +13,6 @@ use anchor_spl::{
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use spl_token_metadata_interface::state::TokenMetadata;
 
 use crate::PoolError;
 
@@ -212,148 +208,6 @@ pub fn transfer_from_pool<'c: 'info, 'info>(
     ];
 
     invoke_signed(&instruction, &account_infos, &[&signer_seeds[..]])?;
-
-    Ok(())
-}
-
-pub fn create_position_base_mint_with_extensions<'info>(
-    payer: AccountInfo<'info>,
-    base_mint: AccountInfo<'info>,
-    mint_authority: AccountInfo<'info>,
-    system_program: AccountInfo<'info>,
-    token_2022_program: AccountInfo<'info>,
-    name: &String,
-    symbol: &String,
-    uri: &String,
-    bump: u8,
-) -> Result<()> {
-    let extensions = [ExtensionType::MetadataPointer].to_vec();
-    let space =
-        ExtensionType::try_calculate_account_len::<spl_token_2022::state::Mint>(&extensions)?;
-
-    let lamports = Rent::get()?.minimum_balance(space);
-
-    // create mint account
-    create_account(
-        CpiContext::new(
-            system_program.clone(),
-            CreateAccount {
-                from: payer.clone(),
-                to: base_mint.clone(),
-            },
-        ),
-        lamports,
-        space as u64,
-        token_2022_program.key,
-    )?;
-
-    // initialize token extensions
-    for e in extensions {
-        match e {
-            ExtensionType::MetadataPointer => {
-                let ix = metadata_pointer::instruction::initialize(
-                    token_2022_program.key,
-                    base_mint.key,
-                    None,
-                    Some(base_mint.key()),
-                )?;
-                anchor_lang::solana_program::program::invoke(
-                    &ix,
-                    &[token_2022_program.clone(), base_mint.clone()],
-                )?;
-            }
-            _ => {
-                return err!(PoolError::InvalidExtension);
-            }
-        }
-    }
-
-    // initialize mint account
-    initialize_mint2(
-        CpiContext::new(
-            token_2022_program.clone(),
-            InitializeMint2 {
-                mint: base_mint.clone(),
-            },
-        ),
-        0,
-        mint_authority.key,
-        None,
-    )?;
-
-    // initialize token metadata
-    initialize_token_metadata_extension(
-        payer,
-        base_mint,
-        mint_authority,
-        token_2022_program,
-        system_program,
-        name,
-        symbol,
-        uri,
-        bump,
-    )?;
-
-    Ok(())
-}
-
-pub fn initialize_token_metadata_extension<'info>(
-    payer: AccountInfo<'info>,
-    base_mint: AccountInfo<'info>,
-    mint_authority: AccountInfo<'info>,
-    token_2022_program: AccountInfo<'info>,
-    system_program: AccountInfo<'info>,
-    name: &String,
-    symbol: &String,
-    uri: &String,
-    bump: u8,
-) -> Result<()> {
-    let additional_lamports = {
-        let metadata = spl_token_metadata_interface::state::TokenMetadata {
-            name: name.clone(),
-            symbol: symbol.clone(),
-            uri: uri.clone(),
-            ..Default::default()
-        };
-        let mint_data = base_mint.try_borrow_data()?;
-        let mint_state_unpacked =
-            StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&mint_data)?;
-        let new_account_len = mint_state_unpacked
-            .try_get_new_account_len_for_variable_len_extension::<TokenMetadata>(&metadata)?;
-        let new_rent_exempt_lamports = Rent::get()?.minimum_balance(new_account_len);
-        let additional_lamports = new_rent_exempt_lamports.saturating_sub(base_mint.lamports());
-        additional_lamports
-    };
-    if additional_lamports > 0 {
-        let cpi_context = CpiContext::new(
-            system_program.clone(),
-            Transfer {
-                from: payer.clone(),
-                to: base_mint.clone(),
-            },
-        );
-        transfer(cpi_context, additional_lamports)?;
-    }
-    let seeds = pool_authority_seeds!(bump);
-    let signer_seeds = &[&seeds[..]];
-    anchor_lang::solana_program::program::invoke_signed(
-        &spl_token_metadata_interface::instruction::initialize(
-            token_2022_program.key,
-            base_mint.key,
-            mint_authority.key,
-            base_mint.key,
-            mint_authority.key,
-            name.clone(),
-            symbol.clone(),
-            uri.clone(),
-        ),
-        &[
-            base_mint.clone(),
-            mint_authority.clone(),
-            token_2022_program.clone(),
-        ],
-        signer_seeds,
-    )?;
 
     Ok(())
 }
