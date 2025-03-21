@@ -213,16 +213,18 @@ pub struct PoolConfig {
     pub token_type: u8,
     /// creator post migration fee percentage
     pub creator_post_migration_fee_percentage: u8,
+    /// version
+    pub version: u8,
     /// padding 0
-    pub _padding_0: [u8; 2],
+    pub _padding_0: [u8; 1],
     /// swap base amount
     pub swap_base_amount: u64,
     /// migration quote threshold (in quote token)
     pub migration_quote_threshold: u64,
     /// migration base threshold (in base token)
     pub migration_base_threshold: u64,
-    /// padding
-    pub padding: [u128; 8],
+    /// padding 1
+    pub _padding_1: [u128; 8],
     /// minimum price
     pub sqrt_start_price: u128,
     /// curve, only use 20 point firstly, we can extend that latter
@@ -259,6 +261,7 @@ impl PoolConfig {
         sqrt_start_price: u128,
         curve: &Vec<LiquidityDistributionParameters>,
     ) {
+        self.version = 0;
         self.quote_mint = *quote_mint;
         self.fee_claimer = *fee_claimer;
         self.owner = *owner;
