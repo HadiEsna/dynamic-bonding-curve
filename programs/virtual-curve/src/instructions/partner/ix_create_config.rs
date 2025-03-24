@@ -131,7 +131,10 @@ pub fn handle_create_config(
 ) -> Result<()> {
     config_parameters.validate()?;
     // validate quote mint
-    is_supported_quote_mint(&ctx.accounts.quote_mint)?;
+    require!(
+        is_supported_quote_mint(&ctx.accounts.quote_mint)?,
+        PoolError::InvalidQuoteMint
+    );
     let ConfigParameters {
         pool_fees,
         collect_fee_mode,

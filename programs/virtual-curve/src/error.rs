@@ -36,7 +36,7 @@ pub enum PoolError {
     #[msg("Invalid activation type")]
     InvalidActivationType,
 
-    #[msg("Quote token must be SOL,USDC")]
+    #[msg("Invalid quote mint")]
     InvalidQuoteMint,
 
     /// Invalid pool LP mint account.
