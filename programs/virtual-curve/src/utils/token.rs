@@ -1,5 +1,9 @@
 use anchor_lang::prelude::*;
-use anchor_lang::{prelude::InterfaceAccount, solana_program::program::invoke_signed};
+use anchor_lang::{
+    prelude::InterfaceAccount,
+    solana_program::program::{invoke, invoke_signed},
+    solana_program::system_instruction::transfer,
+};
 use anchor_spl::{
     token::Token,
     token_2022::spl_token_2022::{
@@ -14,6 +18,7 @@ use anchor_spl::{
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
+use crate::safe_math::SafeMath;
 use crate::PoolError;
 
 #[derive(
@@ -231,4 +236,22 @@ pub fn is_supported_quote_mint(mint_account: &InterfaceAccount<Mint>) -> Result<
         }
     }
     Ok(true)
+}
+
+pub fn update_account_lamports_to_minimum_balance<'info>(
+    account: AccountInfo<'info>,
+    payer: AccountInfo<'info>,
+    system_program: AccountInfo<'info>,
+) -> Result<()> {
+    let minimum_balance = Rent::get()?.minimum_balance(account.data_len());
+    let current_lamport = account.get_lamports();
+    if minimum_balance > current_lamport {
+        let extra_lamports = minimum_balance.safe_sub(current_lamport)?;
+        invoke(
+            &transfer(payer.key, account.key, extra_lamports),
+            &[payer, account, system_program],
+        )?;
+    }
+
+    Ok(())
 }

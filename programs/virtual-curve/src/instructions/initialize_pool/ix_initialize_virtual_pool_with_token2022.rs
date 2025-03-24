@@ -1,3 +1,6 @@
+use super::InitializePoolParameters;
+use super::{max_key, min_key};
+use crate::token::update_account_lamports_to_minimum_balance;
 use crate::{
     activation_handler::get_current_point,
     constants::seeds::{POOL_AUTHORITY_PREFIX, POOL_PREFIX, TOKEN_VAULT_PREFIX},
@@ -11,9 +14,6 @@ use anchor_spl::{
         token_metadata_initialize, Mint, TokenAccount, TokenInterface, TokenMetadataInitialize,
     },
 };
-
-use super::InitializePoolParameters;
-use super::{max_key, min_key};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -142,6 +142,13 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
         signer_seeds,
     );
     token_metadata_initialize(cpi_ctx, name, symbol, uri)?;
+
+    // transfer minimum rent to mint account
+    update_account_lamports_to_minimum_balance(
+        ctx.accounts.base_mint.to_account_info(),
+        ctx.accounts.payer.to_account_info(),
+        ctx.accounts.system_program.to_account_info(),
+    )?;
 
     let config = ctx.accounts.config.load()?;
     let initial_base_supply = config.get_initial_base_supply()?;

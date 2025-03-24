@@ -11,7 +11,7 @@ use crate::{
         },
     },
     state::{CollectFeeMode, MigrationOption, PoolConfig, TokenType},
-    token::is_supported_quote_mint,
+    token::{get_token_program_flags, is_supported_quote_mint},
     EvtCreateConfig, PoolError,
 };
 
@@ -44,12 +44,14 @@ impl ConfigParameters {
         // validate migration option and token type
         let migration_option_value = MigrationOption::try_from(self.migration_option)
             .map_err(|_| PoolError::InvalidMigrationOption)?;
-        let token_type_value =
+        let _token_type_value =
             TokenType::try_from(self.token_type).map_err(|_| PoolError::InvalidTokenType)?;
 
         if migration_option_value == MigrationOption::MeteoraDamm {
+            // skip that check to test create pool with token2022 in local
+            #[cfg(not(feature = "local"))]
             require!(
-                token_type_value == TokenType::SplToken,
+                _token_type_value == TokenType::SplToken,
                 PoolError::InvalidTokenType
             );
         }
@@ -171,6 +173,7 @@ pub fn handle_create_config(
         activation_type,
         token_decimal,
         token_type,
+        get_token_program_flags(&ctx.accounts.quote_mint).into(),
         creator_post_migration_fee_percentage,
         swap_base_amount,
         migration_quote_threshold,
