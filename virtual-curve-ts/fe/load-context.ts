@@ -28,6 +28,5 @@ type GetLoadContext = (args: {
 export const getLoadContext: GetLoadContext = ({ context }) => {
   return {
     ...context,
-    extra: 'stuff',
   }
 }

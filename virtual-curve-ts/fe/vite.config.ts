@@ -8,7 +8,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { getLoadContext } from './load-context'
 import { installGlobals } from '@remix-run/node'
 
-installGlobals()
+installGlobals({ nativeFetch: true })
 
 declare module '@remix-run/cloudflare' {
   interface Future {

@@ -7,8 +7,9 @@ import {
   TransactionInstruction,
   Transaction,
 } from '@solana/web3.js'
-import { BN } from '@coral-xyz/anchor'
-import { VirtualCurveSDK } from '../lib/index'
+import { BN } from 'bn.js'
+import { VirtualCurveSDK } from '../../../lib/index'
+import { LoaderFunctionArgs } from '@remix-run/cloudflare'
 
 // Initialize connection
 const connection = new Connection(
@@ -280,10 +281,13 @@ function serializeAccount(account: any): any {
   return account
 }
 
-const app = new Elysia()
+const app = new Elysia({
+  aot: false,
+})
   .use(cors())
   .use(
     swagger({
+      path: '/api/swagger',
       documentation: {
         info: {
           title: 'Virtual Curve API',
@@ -1229,11 +1233,12 @@ const app = new Elysia()
     }
   )
 
-// Start the server
-const port = process.env.PORT ? parseInt(process.env.PORT) : 3000
-app.listen(port, () => {
-  console.log(`🚀 Virtual Curve API Server running at http://localhost:${port}`)
-  console.log(
-    `📚 Swagger documentation available at http://localhost:${port}/swagger`
-  )
-})
+// Export the loader function for Remix
+export const loader = async ({
+  params,
+  request,
+  context,
+}: LoaderFunctionArgs) => {
+  console.log({ request })
+  return await app.fetch(request)
+}
