@@ -1,4 +1,9 @@
-import { Keypair, PublicKey, TransactionInstruction } from "@solana/web3.js";
+import {
+  Keypair,
+  PublicKey,
+  SystemProgram,
+  TransactionInstruction,
+} from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
 import { VirtualCurveProgram } from "../utils/types";
 import { BanksClient } from "solana-bankrun";
@@ -9,6 +14,7 @@ import {
   unwrapSOLInstruction,
   getTokenAccount,
   deriveMigrationMetadataAddress,
+  deriveEventAuthority,
 } from "../utils";
 import { getConfig, getVirtualPool } from "../utils/fetcher";
 import { expect } from "chai";
@@ -72,12 +78,15 @@ export async function createConfig(
 
   const transaction = await program.methods
     .createConfig(instructionParams)
-    .accounts({
+    .accountsStrict({
       config: config.publicKey,
       feeClaimer,
       owner,
       quoteMint,
       payer: payer.publicKey,
+      systemProgram: SystemProgram.programId,
+      eventAuthority: deriveEventAuthority(program.programId)[0],
+      program: program.programId,
     })
     .transaction();
 
@@ -149,7 +158,7 @@ export async function claimTradingFee(
   unrapSOLIx && postInstructions.push(unrapSOLIx);
   const transaction = await program.methods
     .claimTradingFee(maxBaseAmount, maxQuoteAmount)
-    .accounts({
+    .accountsStrict({
       poolAuthority,
       config: poolState.config,
       pool,
@@ -162,6 +171,8 @@ export async function claimTradingFee(
       feeClaimer: feeClaimer.publicKey,
       tokenBaseProgram,
       tokenQuoteProgram,
+      eventAuthority: deriveEventAuthority(program.programId)[0],
+      program: program.programId,
     })
     .preInstructions(preInstructions)
     .postInstructions(postInstructions)
@@ -208,7 +219,7 @@ export async function partnerWithdrawSurplus(
   unrapSOLIx && postInstructions.push(unrapSOLIx);
   const transaction = await program.methods
     .partnerWithdrawSurplus()
-    .accounts({
+    .accountsStrict({
       poolAuthority,
       config: poolState.config,
       virtualPool,
@@ -217,6 +228,8 @@ export async function partnerWithdrawSurplus(
       quoteMint: quoteMintInfo.mint,
       feeClaimer: feeClaimer.publicKey,
       tokenQuoteProgram: TOKEN_PROGRAM_ID,
+      eventAuthority: deriveEventAuthority(program.programId)[0],
+      program: program.programId,
     })
     .preInstructions(preInstructions)
     .postInstructions(postInstructions)

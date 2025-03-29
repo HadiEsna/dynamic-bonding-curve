@@ -1,4 +1,9 @@
-import { Keypair, PublicKey, TransactionInstruction } from "@solana/web3.js";
+import {
+  Keypair,
+  PublicKey,
+  SystemProgram,
+  TransactionInstruction,
+} from "@solana/web3.js";
 import { BanksClient } from "solana-bankrun";
 import {
   deriveClaimFeeOperatorAddress,
@@ -14,6 +19,7 @@ import {
   TREASURY,
   getClaimFeeOperator,
   getConfig,
+  deriveEventAuthority,
 } from "../utils";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { expect } from "chai";
@@ -32,10 +38,13 @@ export async function createClaimFeeOperator(
   const claimFeeOperator = deriveClaimFeeOperatorAddress(operator);
   const transaction = await program.methods
     .createClaimFeeOperator()
-    .accounts({
+    .accountsStrict({
       claimFeeOperator,
       operator,
       admin: admin.publicKey,
+      systemProgram: SystemProgram.programId,
+      eventAuthority: deriveEventAuthority(program.programId)[0],
+      program: program.programId,
     })
     .transaction();
 
@@ -62,10 +71,12 @@ export async function closeClaimFeeOperator(
 ): Promise<any> {
   const transaction = await program.methods
     .closeClaimFeeOperator()
-    .accounts({
+    .accountsStrict({
       claimFeeOperator,
       rentReceiver: admin.publicKey,
       admin: admin.publicKey,
+      eventAuthority: deriveEventAuthority(program.programId)[0],
+      program: program.programId,
     })
     .transaction();
 
@@ -103,8 +114,6 @@ export async function claimProtocolFee(
     poolState.quoteVault
   );
 
-
-
   const tokenBaseProgram =
     configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
 
@@ -134,12 +143,17 @@ export async function claimProtocolFee(
   createBaseTokenAccountIx && preInstructions.push(createBaseTokenAccountIx);
   createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
 
-  const tokenQuoteAccountState = await getTokenAccount(banksClient, tokenQuoteAccount);
-  const preQuoteTokenBalance = tokenQuoteAccountState ? tokenQuoteAccountState.amount : 0;
+  const tokenQuoteAccountState = await getTokenAccount(
+    banksClient,
+    tokenQuoteAccount
+  );
+  const preQuoteTokenBalance = tokenQuoteAccountState
+    ? tokenQuoteAccountState.amount
+    : 0;
 
   const transaction = await program.methods
     .claimProtocolFee()
-    .accounts({
+    .accountsStrict({
       poolAuthority,
       config: poolState.config,
       pool,
@@ -153,6 +167,8 @@ export async function claimProtocolFee(
       operator: operator.publicKey,
       tokenBaseProgram,
       tokenQuoteProgram,
+      eventAuthority: deriveEventAuthority(program.programId)[0],
+      program: program.programId,
     })
     .preInstructions(preInstructions)
     .transaction();
@@ -206,7 +222,7 @@ export async function protocolWithdrawSurplus(
 
   const transaction = await program.methods
     .protocolWithdrawSurplus()
-    .accounts({
+    .accountsStrict({
       poolAuthority,
       config: poolState.config,
       virtualPool,
@@ -214,6 +230,8 @@ export async function protocolWithdrawSurplus(
       quoteMint: quoteMintInfo.mint,
       tokenQuoteAccount,
       tokenQuoteProgram: TOKEN_PROGRAM_ID,
+      eventAuthority: deriveEventAuthority(program.programId)[0],
+      program: program.programId,
     })
     .preInstructions(preInstructions)
     .transaction();

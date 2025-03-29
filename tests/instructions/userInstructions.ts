@@ -28,6 +28,7 @@ import {
   createVaultProgram,
   DAMM_PROGRAM_ID,
   deriveDammPoolAddress,
+  deriveEventAuthority,
   deriveLpMintAddress,
   deriveProtocolFeeAddress,
   deriveVaultLPAddress,
@@ -79,7 +80,7 @@ export async function createPoolWithSplToken(
     configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
   const transaction = await program.methods
     .initializeVirtualPoolWithSplToken(instructionParams)
-    .accounts({
+    .accountsStrict({
       config,
       baseMint: baseMintKP.publicKey,
       quoteMint,
@@ -93,6 +94,9 @@ export async function createPoolWithSplToken(
       metadataProgram: METAPLEX_PROGRAM_ID,
       tokenQuoteProgram: TOKEN_PROGRAM_ID,
       tokenProgram,
+      systemProgram: SystemProgram.programId,
+      eventAuthority: deriveEventAuthority(program.programId)[0],
+      program: program.programId,
     })
     .transaction();
 
@@ -118,7 +122,7 @@ export async function createPoolWithToken2022(
   const quoteVault = deriveTokenVaultAddress(quoteMint, pool);
   const transaction = await program.methods
     .initializeVirtualPoolWithToken2022(instructionParams)
-    .accounts({
+    .accountsStrict({
       config,
       baseMint: baseMintKP.publicKey,
       quoteMint,
@@ -130,6 +134,9 @@ export async function createPoolWithToken2022(
       quoteVault,
       tokenQuoteProgram: TOKEN_PROGRAM_ID,
       tokenProgram: TOKEN_2022_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
+      eventAuthority: deriveEventAuthority(program.programId)[0],
+      program: program.programId,
     })
     .transaction();
 
@@ -236,7 +243,7 @@ export async function swap(
 
   const transaction = await program.methods
     .swap({ amountIn, minimumAmountOut })
-    .accounts({
+    .accountsStrict({
       poolAuthority,
       config,
       pool,
@@ -250,6 +257,8 @@ export async function swap(
       tokenBaseProgram,
       tokenQuoteProgram: TOKEN_PROGRAM_ID,
       referralTokenAccount,
+      eventAuthority: deriveEventAuthority(program.programId)[0],
+      program: program.programId,
     })
     .preInstructions(preInstructions)
     .postInstructions(postInstructions)
@@ -348,7 +357,7 @@ export async function swapSimulate(
 
   const transaction = await program.methods
     .swap({ amountIn, minimumAmountOut })
-    .accounts({
+    .accountsStrict({
       poolAuthority,
       config,
       pool,
@@ -362,6 +371,8 @@ export async function swapSimulate(
       tokenBaseProgram,
       tokenQuoteProgram: TOKEN_PROGRAM_ID,
       referralTokenAccount,
+      eventAuthority: deriveEventAuthority(program.programId)[0],
+      program: program.programId,
     })
     .transaction();
 
