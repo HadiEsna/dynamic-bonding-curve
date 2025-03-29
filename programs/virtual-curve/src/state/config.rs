@@ -209,20 +209,22 @@ pub struct PoolConfig {
     pub activation_type: u8,
     /// token decimals
     pub token_decimal: u8,
-    /// token type
-    pub token_type: u8,
     /// creator post migration fee percentage
     pub creator_post_migration_fee_percentage: u8,
-    /// padding 0
-    pub _padding_0: [u8; 2],
+    /// version
+    pub version: u8,
+    /// token type of base token
+    pub token_type: u8,
+    /// quote token flag
+    pub quote_token_flag: u8,
     /// swap base amount
     pub swap_base_amount: u64,
     /// migration quote threshold (in quote token)
     pub migration_quote_threshold: u64,
     /// migration base threshold (in base token)
     pub migration_base_threshold: u64,
-    /// padding
-    pub padding: [u128; 8],
+    /// padding 1
+    pub _padding_1: [u128; 8],
     /// minimum price
     pub sqrt_start_price: u128,
     /// curve, only use 20 point firstly, we can extend that latter
@@ -252,6 +254,7 @@ impl PoolConfig {
         activation_type: u8,
         token_decimal: u8,
         token_type: u8,
+        quote_token_flag: u8,
         creator_post_migration_fee_percentage: u8,
         swap_base_amount: u64,
         migration_quote_threshold: u64,
@@ -259,6 +262,7 @@ impl PoolConfig {
         sqrt_start_price: u128,
         curve: &Vec<LiquidityDistributionParameters>,
     ) {
+        self.version = 0;
         self.quote_mint = *quote_mint;
         self.fee_claimer = *fee_claimer;
         self.owner = *owner;
@@ -272,6 +276,7 @@ impl PoolConfig {
         self.migration_base_threshold = migration_base_threshold;
         self.sqrt_start_price = sqrt_start_price;
         self.token_type = token_type;
+        self.quote_token_flag = quote_token_flag;
         self.creator_post_migration_fee_percentage = creator_post_migration_fee_percentage;
 
         let curve_length = curve.len();
