@@ -109,7 +109,6 @@ export default function CreatePool() {
       if (!wallet.publicKey || !sdk) return []
 
       const configs = await sdk.getPoolConfigs(wallet.publicKey)
-      console.log({ configs })
 
       return configs.map((config) => ({
         id: config.publicKey.toString(),

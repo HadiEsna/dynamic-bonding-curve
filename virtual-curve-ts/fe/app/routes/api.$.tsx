@@ -1239,6 +1239,5 @@ export const loader = async ({
   request,
   context,
 }: LoaderFunctionArgs) => {
-  console.log({ request })
   return await app.fetch(request)
 }

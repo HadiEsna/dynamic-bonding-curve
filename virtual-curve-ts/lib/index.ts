@@ -26,8 +26,11 @@ import {
   type MigrateMeteoraDammAccounts,
   type MigrateMeteoraDammLockLpTokenForCreatorAccounts,
   type MigrateMeteoraDammLockLpTokenForPartnerAccounts,
+  type VirtualPool,
+  type PoolConfig,
 } from './types'
-import { BN } from 'bn.js'
+import BN, { BN } from 'bn.js'
+import { quoteExactIn } from './quote'
 
 // Define a type for accounts that might have optional fields
 type AccountsWithOptionalFields<T, K extends keyof T> = {
@@ -377,9 +380,6 @@ export class VirtualCurveSDK {
 
     if (owner) {
       const ownerKey = typeof owner === 'string' ? new PublicKey(owner) : owner
-      console.log({
-        owner,
-      })
       filters.push({
         memcmp: {
           offset: 72,
@@ -390,5 +390,23 @@ export class VirtualCurveSDK {
     }
 
     return await this.program.account.poolConfig.all(filters)
+  }
+
+  quoteExactIn(
+    virtualPool: VirtualPool,
+    config: PoolConfig,
+    swapBaseForQuote: boolean,
+    amountIn: BN,
+    hasReferral: boolean,
+    currentPoint: BN
+  ) {
+    const quoteResult = quoteExactIn(
+      virtualPool,
+      config,
+      swapBaseForQuote,
+      amountIn,
+      hasReferral,
+      currentPoint
+    )
   }
 }
