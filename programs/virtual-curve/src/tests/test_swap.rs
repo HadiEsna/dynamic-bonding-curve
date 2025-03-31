@@ -8,7 +8,7 @@ use crate::{
         },
         swap::TradeDirection,
     },
-    state::{CollectFeeMode, LiquidityDistributionConfig, PoolConfig, VirtualPool},
+    state::{fee::FeeMode, CollectFeeMode, LiquidityDistributionConfig, PoolConfig, VirtualPool},
 };
 
 use super::price_math::get_price_from_id;
@@ -30,7 +30,7 @@ fn test_swap() {
     let mut config = PoolConfig {
         migration_quote_threshold,
         sqrt_start_price,
-        collect_fee_mode: CollectFeeMode::BothToken.into(),
+        collect_fee_mode: CollectFeeMode::OutputToken.into(),
         ..Default::default()
     };
     let curve_length = curve.len();
@@ -67,8 +67,15 @@ fn test_swap() {
         config.get_initial_base_supply().unwrap(),
     );
     let amount_in = 1_000_000_000; // 1k
+    let fee_mode = FeeMode::default();
     let result = pool
-        .get_swap_result(&config, amount_in, false, TradeDirection::QuotetoBase, 0)
+        .get_swap_result(
+            &config,
+            amount_in,
+            &fee_mode,
+            TradeDirection::QuoteToBase,
+            0,
+        )
         .unwrap();
     println!("{:?}", result);
 }
