@@ -10,7 +10,9 @@ use crate::{
         BASIS_POINT_MAX,
     },
     fee_math::get_fee_in_period,
+    params::swap::TradeDirection,
     safe_math::SafeMath,
+    state::CollectFeeMode,
     utils_math::safe_mul_div_cast_u64,
     PoolError,
 };
@@ -225,6 +227,7 @@ impl DynamicFeeStruct {
         };
         Ok(delta_id.safe_mul(2)?) // mul 2 because we are using sqrt price
     }
+
     pub fn update_volatility_accumulator(&mut self, sqrt_price: u128) -> Result<()> {
         let delta_price =
             Self::get_delta_bin_id(self.bin_step_u128, sqrt_price, self.sqrt_price_reference)?;
@@ -288,5 +291,142 @@ impl DynamicFeeStruct {
         } else {
             Ok(0)
         }
+    }
+}
+
+#[derive(Default, Debug)]
+pub struct FeeMode {
+    pub fees_on_input: bool,
+    pub fees_on_base_token: bool,
+    pub has_referral: bool,
+}
+
+impl FeeMode {
+    pub fn get_fee_mode(
+        collect_fee_mode: u8,
+        trade_direction: TradeDirection,
+        has_referral: bool,
+    ) -> Result<FeeMode> {
+        let collect_fee_mode = CollectFeeMode::try_from(collect_fee_mode)
+            .map_err(|_| PoolError::InvalidCollectFeeMode)?;
+
+        let (fees_on_input, fees_on_base_token) = match (collect_fee_mode, trade_direction) {
+            // When collecting fees on output token
+            (CollectFeeMode::OutputToken, TradeDirection::BaseToQuote) => (false, false),
+            (CollectFeeMode::OutputToken, TradeDirection::QuoteToBase) => (false, true),
+
+            // When collecting fees on quote token
+            (CollectFeeMode::QuoteToken, TradeDirection::BaseToQuote) => (false, false),
+            (CollectFeeMode::QuoteToken, TradeDirection::QuoteToBase) => (true, false),
+        };
+
+        Ok(FeeMode {
+            fees_on_input,
+            fees_on_base_token,
+            has_referral,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fee_mode_output_token_base_to_quote() {
+        let fee_mode = FeeMode::get_fee_mode(
+            CollectFeeMode::OutputToken as u8,
+            TradeDirection::BaseToQuote,
+            false,
+        )
+        .unwrap();
+
+        assert_eq!(fee_mode.fees_on_input, false);
+        assert_eq!(fee_mode.fees_on_base_token, false);
+        assert_eq!(fee_mode.has_referral, false);
+    }
+
+    #[test]
+    fn test_fee_mode_output_token_quote_to_base() {
+        let fee_mode = FeeMode::get_fee_mode(
+            CollectFeeMode::OutputToken as u8,
+            TradeDirection::QuoteToBase,
+            true,
+        )
+        .unwrap();
+
+        assert_eq!(fee_mode.fees_on_input, false);
+        assert_eq!(fee_mode.fees_on_base_token, true);
+        assert_eq!(fee_mode.has_referral, true);
+    }
+
+    #[test]
+    fn test_fee_mode_quote_token_base_to_quote() {
+        let fee_mode = FeeMode::get_fee_mode(
+            CollectFeeMode::QuoteToken as u8,
+            TradeDirection::BaseToQuote,
+            false,
+        )
+        .unwrap();
+
+        assert_eq!(fee_mode.fees_on_input, false);
+        assert_eq!(fee_mode.fees_on_base_token, false);
+        assert_eq!(fee_mode.has_referral, false);
+    }
+
+    #[test]
+    fn test_fee_mode_quote_token_quote_to_base() {
+        let fee_mode = FeeMode::get_fee_mode(
+            CollectFeeMode::QuoteToken as u8,
+            TradeDirection::QuoteToBase,
+            true,
+        )
+        .unwrap();
+
+        assert_eq!(fee_mode.fees_on_input, true);
+        assert_eq!(fee_mode.fees_on_base_token, false);
+        assert_eq!(fee_mode.has_referral, true);
+    }
+
+    #[test]
+    fn test_invalid_collect_fee_mode() {
+        let result = FeeMode::get_fee_mode(
+            2, // Invalid mode
+            TradeDirection::QuoteToBase,
+            false,
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_fee_mode_default() {
+        let fee_mode = FeeMode::default();
+
+        assert_eq!(fee_mode.fees_on_input, false);
+        assert_eq!(fee_mode.fees_on_base_token, false);
+        assert_eq!(fee_mode.has_referral, false);
+    }
+
+    // Property-based test to ensure consistent behavior
+    #[test]
+    fn test_fee_mode_properties() {
+        // When trading BaseToQuote, fees should never be on input
+        let fee_mode = FeeMode::get_fee_mode(
+            CollectFeeMode::QuoteToken as u8,
+            TradeDirection::BaseToQuote,
+            true,
+        )
+        .unwrap();
+        assert_eq!(fee_mode.fees_on_input, false);
+
+        // When using QuoteToken mode, base_token should always be false
+        let fee_mode = FeeMode::get_fee_mode(
+            CollectFeeMode::QuoteToken as u8,
+            TradeDirection::QuoteToBase,
+            false,
+        )
+        .unwrap();
+        assert_eq!(fee_mode.fees_on_base_token, false);
     }
 }

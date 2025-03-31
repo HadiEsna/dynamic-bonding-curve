@@ -6,7 +6,8 @@ use crate::{
     activation_handler::get_current_point,
     constants::seeds::POOL_AUTHORITY_PREFIX,
     params::swap::TradeDirection,
-    state::{CollectFeeMode, PoolConfig, VirtualPool},
+    state::fee::FeeMode,
+    state::{PoolConfig, VirtualPool},
     token::{calculate_transfer_fee_excluded_amount, transfer_from_pool, transfer_from_user},
     EvtSwap, PoolError,
 };
@@ -76,9 +77,9 @@ impl<'info> SwapCtx<'info> {
     /// Get the trading direction of the current swap. Eg: USDT -> USDC
     pub fn get_trade_direction(&self) -> TradeDirection {
         if self.input_token_account.mint == self.base_mint.key() {
-            return TradeDirection::BasetoQuote;
+            return TradeDirection::BaseToQuote;
         }
-        TradeDirection::QuotetoBase
+        TradeDirection::QuoteToBase
     }
 }
 
@@ -98,7 +99,7 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
         input_program,
         output_program,
     ) = match trade_direction {
-        TradeDirection::BasetoQuote => (
+        TradeDirection::BaseToQuote => (
             &ctx.accounts.base_mint,
             &ctx.accounts.quote_mint,
             &ctx.accounts.base_vault,
@@ -106,7 +107,7 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
             &ctx.accounts.token_base_program,
             &ctx.accounts.token_quote_program,
         ),
-        TradeDirection::QuotetoBase => (
+        TradeDirection::QuoteToBase => (
             &ctx.accounts.quote_mint,
             &ctx.accounts.base_mint,
             &ctx.accounts.quote_vault,
@@ -121,7 +122,7 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
 
     require!(transfer_fee_excluded_amount_in > 0, PoolError::AmountIsZero);
 
-    let is_referral = ctx.accounts.referral_token_account.is_some();
+    let has_referral = ctx.accounts.referral_token_account.is_some();
 
     let config = ctx.accounts.config.load()?;
     let mut pool = ctx.accounts.pool.load_mut()?;
@@ -137,11 +138,12 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
     pool.update_pre_swap(current_timestamp)?;
 
     let current_point = get_current_point(config.activation_type)?;
+    let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
 
     let swap_result = pool.get_swap_result(
         &config,
         transfer_fee_excluded_amount_in,
-        is_referral,
+        fee_mode,
         trade_direction,
         current_point,
     )?;
@@ -151,13 +153,7 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
         PoolError::ExceededSlippage
     );
 
-    pool.apply_swap_result(
-        &config,
-        transfer_fee_excluded_amount_in,
-        &swap_result,
-        trade_direction,
-        current_timestamp,
-    )?;
+    pool.apply_swap_result(&swap_result, fee_mode, trade_direction, current_timestamp)?;
 
     // send to reserve
     transfer_from_user(
@@ -168,6 +164,7 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
         input_program,
         amount_in,
     )?;
+
     // send to user
     transfer_from_pool(
         ctx.accounts.pool_authority.to_account_info(),
@@ -178,29 +175,26 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
         swap_result.output_amount,
         ctx.bumps.pool_authority,
     )?;
+
     // send to referral
-    if is_referral {
-        let collect_fee_mode = CollectFeeMode::try_from(config.collect_fee_mode)
-            .map_err(|_| PoolError::InvalidCollectFeeMode)?;
-        if collect_fee_mode == CollectFeeMode::OnlyB
-            || trade_direction == TradeDirection::BasetoQuote
-        {
-            transfer_from_pool(
-                ctx.accounts.pool_authority.to_account_info(),
-                &ctx.accounts.quote_mint,
-                &ctx.accounts.quote_vault,
-                &ctx.accounts.referral_token_account.clone().unwrap(),
-                &ctx.accounts.token_quote_program,
-                swap_result.referral_fee,
-                ctx.bumps.pool_authority,
-            )?;
-        } else {
+    if has_referral {
+        if fee_mode.fees_on_base_token {
             transfer_from_pool(
                 ctx.accounts.pool_authority.to_account_info(),
                 &ctx.accounts.base_mint,
                 &ctx.accounts.base_vault,
                 &ctx.accounts.referral_token_account.clone().unwrap(),
                 &ctx.accounts.token_base_program,
+                swap_result.referral_fee,
+                ctx.bumps.pool_authority,
+            )?;
+        } else {
+            transfer_from_pool(
+                ctx.accounts.pool_authority.to_account_info(),
+                &ctx.accounts.quote_mint,
+                &ctx.accounts.quote_vault,
+                &ctx.accounts.referral_token_account.clone().unwrap(),
+                &ctx.accounts.token_quote_program,
                 swap_result.referral_fee,
                 ctx.bumps.pool_authority,
             )?;
@@ -213,7 +207,7 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
         trade_direction: trade_direction.into(),
         params,
         swap_result,
-        is_referral,
+        has_referral,
         transfer_fee_excluded_amount_in,
         current_timestamp,
     });
