@@ -49,14 +49,12 @@ export async function createMeteoraMetadata(
   const migrationMetadata = deriveMigrationMetadataAddress(virtualPool);
   const transaction = await program.methods
     .migrationMeteoraDammCreateMetadata()
-    .accountsStrict({
+    .accountsPartial({
       virtualPool,
       config,
       migrationMetadata,
       payer: payer.publicKey,
       systemProgram: SystemProgram.programId,
-      eventAuthority: deriveEventAuthority(program.programId)[0],
-      program: program.programId,
     })
     .transaction();
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
@@ -134,7 +132,7 @@ export async function migrateToMeteoraDamm(
 
   const transaction = await program.methods
     .migrateMeteoraDamm()
-    .accountsStrict({
+    .accountsPartial({
       virtualPool,
       migrationMetadata,
       config: virtualPoolState.config,
@@ -262,7 +260,7 @@ export async function lockLpForCreatorDamm(
   );
   const transaction = await program.methods
     .migrateMeteoraDammLockLpTokenForCreator()
-    .accountsStrict({
+    .accountsPartial({
       migrationMetadata,
       poolAuthority,
       pool: dammPool,

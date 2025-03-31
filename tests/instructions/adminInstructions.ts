@@ -38,13 +38,11 @@ export async function createClaimFeeOperator(
   const claimFeeOperator = deriveClaimFeeOperatorAddress(operator);
   const transaction = await program.methods
     .createClaimFeeOperator()
-    .accountsStrict({
+    .accountsPartial({
       claimFeeOperator,
       operator,
       admin: admin.publicKey,
       systemProgram: SystemProgram.programId,
-      eventAuthority: deriveEventAuthority(program.programId)[0],
-      program: program.programId,
     })
     .transaction();
 
@@ -71,12 +69,10 @@ export async function closeClaimFeeOperator(
 ): Promise<any> {
   const transaction = await program.methods
     .closeClaimFeeOperator()
-    .accountsStrict({
+    .accountsPartial({
       claimFeeOperator,
       rentReceiver: admin.publicKey,
       admin: admin.publicKey,
-      eventAuthority: deriveEventAuthority(program.programId)[0],
-      program: program.programId,
     })
     .transaction();
 
@@ -153,7 +149,7 @@ export async function claimProtocolFee(
 
   const transaction = await program.methods
     .claimProtocolFee()
-    .accountsStrict({
+    .accountsPartial({
       poolAuthority,
       config: poolState.config,
       pool,
@@ -167,8 +163,6 @@ export async function claimProtocolFee(
       operator: operator.publicKey,
       tokenBaseProgram,
       tokenQuoteProgram,
-      eventAuthority: deriveEventAuthority(program.programId)[0],
-      program: program.programId,
     })
     .preInstructions(preInstructions)
     .transaction();
@@ -222,7 +216,7 @@ export async function protocolWithdrawSurplus(
 
   const transaction = await program.methods
     .protocolWithdrawSurplus()
-    .accountsStrict({
+    .accountsPartial({
       poolAuthority,
       config: poolState.config,
       virtualPool,
@@ -230,8 +224,6 @@ export async function protocolWithdrawSurplus(
       quoteMint: quoteMintInfo.mint,
       tokenQuoteAccount,
       tokenQuoteProgram: TOKEN_PROGRAM_ID,
-      eventAuthority: deriveEventAuthority(program.programId)[0],
-      program: program.programId,
     })
     .preInstructions(preInstructions)
     .transaction();

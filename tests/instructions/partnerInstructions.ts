@@ -78,15 +78,13 @@ export async function createConfig(
 
   const transaction = await program.methods
     .createConfig(instructionParams)
-    .accountsStrict({
+    .accountsPartial({
       config: config.publicKey,
       feeClaimer,
       owner,
       quoteMint,
       payer: payer.publicKey,
       systemProgram: SystemProgram.programId,
-      eventAuthority: deriveEventAuthority(program.programId)[0],
-      program: program.programId,
     })
     .transaction();
 
@@ -158,7 +156,7 @@ export async function claimTradingFee(
   unrapSOLIx && postInstructions.push(unrapSOLIx);
   const transaction = await program.methods
     .claimTradingFee(maxBaseAmount, maxQuoteAmount)
-    .accountsStrict({
+    .accountsPartial({
       poolAuthority,
       config: poolState.config,
       pool,
@@ -171,8 +169,6 @@ export async function claimTradingFee(
       feeClaimer: feeClaimer.publicKey,
       tokenBaseProgram,
       tokenQuoteProgram,
-      eventAuthority: deriveEventAuthority(program.programId)[0],
-      program: program.programId,
     })
     .preInstructions(preInstructions)
     .postInstructions(postInstructions)
@@ -219,7 +215,7 @@ export async function partnerWithdrawSurplus(
   unrapSOLIx && postInstructions.push(unrapSOLIx);
   const transaction = await program.methods
     .partnerWithdrawSurplus()
-    .accountsStrict({
+    .accountsPartial({
       poolAuthority,
       config: poolState.config,
       virtualPool,
@@ -228,8 +224,6 @@ export async function partnerWithdrawSurplus(
       quoteMint: quoteMintInfo.mint,
       feeClaimer: feeClaimer.publicKey,
       tokenQuoteProgram: TOKEN_PROGRAM_ID,
-      eventAuthority: deriveEventAuthority(program.programId)[0],
-      program: program.programId,
     })
     .preInstructions(preInstructions)
     .postInstructions(postInstructions)
