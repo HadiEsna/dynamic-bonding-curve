@@ -1,10 +1,6 @@
 import BN from 'bn.js'
-import { PublicKey } from '@solana/web3.js'
 import type {
   PoolConfig,
-  PoolFeesConfig,
-  BaseFeeConfig,
-  DynamicFeeConfig,
   LiquidityDistributionConfig,
   PoolFeeParamters,
   BaseFeeParameters,

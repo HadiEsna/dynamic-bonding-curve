@@ -8,7 +8,7 @@ import {
   Transaction,
 } from '@solana/web3.js'
 import { BN } from 'bn.js'
-import { VirtualCurveSDK } from '../../../lib/index'
+import { VirtualCurveSDK } from '../../../lib/src'
 import { LoaderFunctionArgs } from '@remix-run/cloudflare'
 
 // Initialize connection

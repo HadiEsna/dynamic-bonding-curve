@@ -19,7 +19,7 @@ import TokenomicsChart from '../components/TokenomicsChart'
 import { TEMPLATES } from '../lib/templates'
 import { useVirtualProgram } from '~/contexts/VirtualProgramContext'
 import { useWallet } from '@solana/wallet-adapter-react'
-import { FEE_DENOMINATOR } from '../../../lib'
+import { FEE_DENOMINATOR } from '../../../lib/src'
 
 export const meta: MetaFunction = () => {
   return [
@@ -305,7 +305,7 @@ export default function CreatePool() {
               </div>
 
               <Link
-                to={`/create?config=${config.id}`}
+                to={`/create-pool?config=${config.id}`}
                 preventScrollReset
                 className={`mt-auto ${
                   isSelected
@@ -325,7 +325,7 @@ export default function CreatePool() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-900 to-purple-900 text-white">
       {/* Header */}
-      <Header currentPath="/create" />
+      <Header currentPath="/create-pool" />
 
       {/* Page Content */}
       <main className="container mx-auto px-4 py-10">
@@ -375,7 +375,7 @@ export default function CreatePool() {
                 Explore Pools
               </Link>
               <Link
-                to="/create"
+                to="/create-pool"
                 className="bg-gradient-to-r from-pink-500 to-purple-500 px-6 py-3 rounded-xl font-medium hover:opacity-90 transition"
               >
                 Create Another Pool

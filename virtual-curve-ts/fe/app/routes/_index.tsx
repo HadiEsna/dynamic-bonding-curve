@@ -43,7 +43,7 @@ export default function Index() {
             Explore Pools
           </Link>
           <Link
-            to="/create"
+            to="/create-pool"
             className="bg-transparent border border-white/20 px-8 py-3 rounded-full font-medium hover:bg-white/10 transition"
           >
             Create Pool

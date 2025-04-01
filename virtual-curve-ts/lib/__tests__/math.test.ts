@@ -4,7 +4,7 @@ import {
   getDeltaAmountQuoteUnsigned,
   getNextSqrtPriceFromAmountBase,
   getNextSqrtPriceFromAmountQuote,
-} from '../lib/math'
+} from '../src/math'
 import { BN } from 'bn.js'
 import { Q } from './test-helpers'
 

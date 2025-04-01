@@ -1,6 +1,6 @@
 import { test, expect } from 'bun:test'
-import { getFeeMode } from '../lib/quote'
-import { TradeDirection } from '../lib/types'
+import { getFeeMode } from '../src/quote'
+import { TradeDirection } from '../src/types'
 
 enum CollectFeeMode {
   QuoteToken = 0,

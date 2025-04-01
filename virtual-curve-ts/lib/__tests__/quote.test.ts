@@ -1,15 +1,15 @@
 import { test, expect } from 'bun:test'
-import { quoteExactIn } from '../lib/quote'
+import { quoteExactIn } from '../src/quote'
 import BN from 'bn.js'
-import { type VirtualPool, type PoolConfig, TradeDirection } from '../lib/types'
+import { type VirtualPool, type PoolConfig, TradeDirection } from '../src/types'
 import { PublicKey } from '@solana/web3.js'
-import { DEFAULT_POOL_CONFIG, DEFAULT_VIRTUAL_POOL } from '../lib/defaults'
+import { DEFAULT_POOL_CONFIG, DEFAULT_VIRTUAL_POOL } from '../src/defaults'
 import {
   getInitialBaseSupply,
   MAX_CURVE_POINT,
   toPoolFeesConfig,
-} from '../lib/pool_config'
-import { getPriceFromId } from '../lib/price_math'
+} from '../src/pool_config'
+import { getPriceFromId } from '../src/price_math'
 
 // Helper function to convert to Q64.64 format (similar to Rust test)
 const Q = (n: number) => {

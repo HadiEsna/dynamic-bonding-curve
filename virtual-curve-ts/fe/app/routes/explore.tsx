@@ -177,7 +177,7 @@ export default function ExplorePools() {
             </p>
           </div>
           <Link
-            to="/create"
+            to="/create-pool"
             className="mt-4 md:mt-0 bg-gradient-to-r from-pink-500 to-purple-500 px-6 py-3 rounded-full font-medium hover:opacity-90 transition"
           >
             Create New Pool

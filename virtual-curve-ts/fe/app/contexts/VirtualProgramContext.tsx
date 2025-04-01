@@ -1,6 +1,6 @@
 import React, { createContext, useContext, ReactNode, useMemo } from 'react'
 import { Connection } from '@solana/web3.js'
-import { VirtualCurveSDK } from '../../../lib'
+import { VirtualCurveSDK } from '../../../lib/src'
 
 // Define the shape of our context
 interface VirtualProgramContextState {

@@ -48,9 +48,9 @@ export default function Header({ currentPath = '' }: HeaderProps) {
         </Link>
         <Link
           prefetch="render"
-          to="/config"
+          to="/create-config"
           className={
-            currentPath === '/config'
+            currentPath === '/create-config'
               ? 'text-purple-300 border-b border-purple-300 pb-1'
               : 'hover:text-purple-300 transition'
           }
@@ -59,9 +59,9 @@ export default function Header({ currentPath = '' }: HeaderProps) {
         </Link>
         <Link
           prefetch="render"
-          to="/create"
+          to="/create-pool"
           className={
-            currentPath === '/create'
+            currentPath === '/create-pool'
               ? 'text-purple-300 border-b border-purple-300 pb-1'
               : 'hover:text-purple-300 transition'
           }

@@ -311,7 +311,7 @@ export default function ConfigPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-900 to-purple-900 text-white">
       {/* Header */}
-      <Header currentPath="/config" />
+      <Header currentPath="/create-config" />
 
       {/* Page Content */}
       <main className="container mx-auto px-4 py-10">
@@ -323,7 +323,7 @@ export default function ConfigPage() {
             </p>
           </div>
           <Link
-            to="/create"
+            to="/create-pool"
             className="mt-4 md:mt-0 bg-gradient-to-r from-pink-500 to-purple-500 px-6 py-3 rounded-full font-medium hover:opacity-90 transition flex items-center gap-2"
           >
             <span>Create Pool</span>

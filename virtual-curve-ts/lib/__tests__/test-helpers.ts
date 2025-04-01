@@ -1,5 +1,5 @@
 import BN from 'bn.js'
-import { type VirtualPool } from '../lib/types'
+import { type VirtualPool } from '../src/types'
 
 // Q64.64 format helper
 export const Q = (n: number) => {

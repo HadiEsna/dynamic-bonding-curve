@@ -29,7 +29,7 @@ import {
   type VirtualPool,
   type PoolConfig,
 } from './types'
-import BN, { BN } from 'bn.js'
+import BN from 'bn.js'
 import { quoteExactIn } from './quote'
 
 // Define a type for accounts that might have optional fields

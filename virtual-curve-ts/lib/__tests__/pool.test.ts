@@ -1,6 +1,6 @@
 import { test, expect } from 'bun:test'
 import { createMockPool, Q, TestPools } from './test-helpers'
-import BN from 'bn.js'
+import { BN } from 'bn.js'
 
 test('createMockPool with custom parameters', () => {
   const baseReserve = new BN('2000000000000')
