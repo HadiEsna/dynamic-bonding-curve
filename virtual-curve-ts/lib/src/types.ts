@@ -25,6 +25,25 @@ export type ClaimTradingFeeAccounts = Accounts<
 export type CreateConfigAccounts = Accounts<
   IDL['instructions']['4']
 >['createConfig']
+
+// {
+//   systemProgram: Address;
+//   eventAuthority: Address;
+//   program: Address;
+//   config: Address;
+//   pool: Address;
+//   quoteMint: Address;
+//   creator: Address;
+//   baseMint: Address | undefined;
+//   baseVault: Address;
+//   quoteVault: Address;
+//   payer: Address | undefined;
+//   poolAuthority: Address;
+//   mintMetadata: Address;
+//   metadataProgram: Address;
+//   tokenProgram: Address;
+//   tokenQuoteProgram: Address;
+// }
 export type InitializeVirtualPoolWithSplTokenAccounts = Accounts<
   IDL['instructions']['5']
 >['initializeVirtualPoolWithSplToken']

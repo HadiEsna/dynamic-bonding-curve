@@ -19,7 +19,14 @@ import TokenomicsChart from '../components/TokenomicsChart'
 import { TEMPLATES } from '../lib/templates'
 import { useVirtualProgram } from '~/contexts/VirtualProgramContext'
 import { useWallet } from '@solana/wallet-adapter-react'
-import { FEE_DENOMINATOR } from '../../../lib/src'
+import {
+  FEE_DENOMINATOR,
+  TOKEN_PROGRAM_2022_ID,
+  TOKEN_PROGRAM_ID,
+} from '../../../lib/src'
+import { useForm } from '@tanstack/react-form'
+import { Keypair, PublicKey, Transaction } from '@solana/web3.js'
+import { useSendTransaction } from '~/hooks/useSendTransaction'
 
 export const meta: MetaFunction = () => {
   return [
@@ -32,74 +39,49 @@ export const meta: MetaFunction = () => {
   ]
 }
 
-// Define the schema for the pool creation form
+// Define the schema for form validation
 const poolSchema = z.object({
-  // Token Details
   tokenName: z.string().min(3, 'Token name must be at least 3 characters'),
   tokenSymbol: z
     .string()
     .min(1, 'Token symbol is required')
     .max(10, 'Token symbol must be 10 characters or less'),
-  tokenDescription: z.string().optional(),
-  tokenLogo: z.any().optional(), // In a real app, this would be a file upload
-
-  // Pool Settings (these would come from a configuration)
-  initialPrice: z.number().positive('Initial price must be positive'),
-  maxSupply: z.number().positive('Max supply must be positive'),
-  creatorFee: z
-    .number()
-    .min(0)
-    .max(10, 'Creator fee must be between 0% and 10%'),
-  tradingFee: z.number().min(0).max(5, 'Trading fee must be between 0% and 5%'),
-  curveType: z.enum(['exponential', 'linear', 'custom']),
-
-  // Social Links
+  tokenLogo: z.instanceof(File).optional().nullable(),
   website: z
     .string()
-    .url('Please enter a valid URL')
+    .url({ message: 'Please enter a valid URL' })
     .optional()
     .or(z.literal('')),
   twitter: z
     .string()
-    .url('Please enter a valid URL')
+    .url({ message: 'Please enter a valid URL' })
     .optional()
     .or(z.literal('')),
   telegram: z
     .string()
-    .url('Please enter a valid URL')
+    .url({ message: 'Please enter a valid URL' })
     .optional()
     .or(z.literal('')),
-  discord: z
-    .string()
-    .url('Please enter a valid URL')
-    .optional()
-    .or(z.literal('')),
+  configPubkey: z.string().min(1, 'Configuration is required'),
 })
 
-// Define the type based on the schema
-type PoolFormValues = z.infer<typeof poolSchema>
-
-// Define the custom curve params type
-interface CustomCurveParams {
-  points: Array<{ x: number; y: number }>
+// Define the FormValues interface
+interface FormValues {
+  tokenName: string
+  tokenSymbol: string
+  tokenLogo?: File | null
+  website?: string
+  twitter?: string
+  telegram?: string
+  configPubkey: string
 }
-
-// Define the form values type with the custom curve params
-interface FormValues extends PoolFormValues {
-  customCurveParams?: CustomCurveParams
-}
-
-// Define the saved config type - updated to match what we'll get from the SDK
 
 export default function CreatePool() {
   const [searchParams, setSearchParams] = useSearchParams()
   const configId = searchParams.get('config')
+  const { sendTransaction } = useSendTransaction()
 
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isSuccess, setIsSuccess] = useState(false)
-  const [error, setError] = useState('')
-
-  const { sdk } = useVirtualProgram()
+  const { sdk, connection } = useVirtualProgram()
   const wallet = useWallet()
 
   // Query to fetch configs owned by the current wallet
@@ -118,96 +100,86 @@ export default function CreatePool() {
     enabled: !!wallet.publicKey && !!sdk,
   })
 
-  // Default form values
-  const [formValues, setFormValues] = useState<FormValues>({
-    tokenName: '',
-    tokenSymbol: '',
-    tokenDescription: '',
-    tokenLogo: null,
-    initialPrice: 0.000001,
-    maxSupply: 1000000000,
-    creatorFee: 2.5,
-    tradingFee: 1,
-    curveType: 'exponential',
-    website: '',
-    twitter: '',
-    telegram: '',
-    discord: '',
-    customCurveParams: {
-      points: [
-        { x: 0, y: 0.0001 },
-        { x: 25, y: 0.0002 },
-        { x: 50, y: 0.0005 },
-        { x: 75, y: 0.001 },
-        { x: 100, y: 0.002 },
-      ],
+  // Initialize TanStack Form
+  const form = useForm({
+    defaultValues: {
+      tokenName: '',
+      tokenSymbol: '',
+      tokenLogo: null,
+      website: '',
+      twitter: '',
+      telegram: '',
+      configPubkey: configId || '',
+    } as FormValues,
+    onSubmit: async ({ value }) => {
+      try {
+        if (!sdk || !connection) throw new Error('SDK not initialized')
+        if (!wallet.publicKey) throw new Error('Wallet not connected')
+
+        // In a real app, this would be an API call to create the pool
+        console.log('Creating pool with values:', value)
+        const config = await sdk.getPoolConfig(
+          new PublicKey(value.configPubkey)
+        )
+
+        if (!config) throw new Error('Config not found')
+
+        const mintKeypair = Keypair.generate()
+        const pool = await sdk.initializeVirtualPoolWithSplToken(
+          {
+            baseMint: mintKeypair.publicKey,
+            config: value.configPubkey,
+            creator: wallet.publicKey,
+            quoteMint: config.quoteMint,
+            payer: wallet.publicKey,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            tokenQuoteProgram: TOKEN_PROGRAM_ID,
+          },
+          {
+            name: value.tokenName,
+            symbol: value.tokenSymbol,
+            uri: value.tokenLogo?.name || '',
+          }
+        )
+
+        console.log('Pool:', pool)
+
+        const recentBlockhash = await connection.getLatestBlockhash('confirmed')
+        const transaction = new Transaction({
+          feePayer: wallet.publicKey,
+          ...recentBlockhash,
+        })
+
+        transaction.add(pool)
+        transaction.partialSign(mintKeypair)
+
+        // Use the sendTransaction hook instead of directly sending and confirming
+        const resp = await sendTransaction(transaction, connection, {
+          onSuccess: (signature) => {
+            console.log('Pool created successfully, tx:', signature)
+          },
+          onError: (err) => {
+            console.error('Failed to create Pool:', err)
+            // setError(err.message)
+          },
+        })
+        await resp?.unwrap()
+      } catch (err) {
+        console.error('Submission error:', err)
+        throw new Error('Failed to create pool. Please try again.')
+      }
+    },
+    validators: {
+      onSubmit: poolSchema,
     },
   })
 
-  // Load configuration if configId is provided
+  // Update form when configId changes
   useEffect(() => {
-    if (configId && userConfigs) {
-      const config = userConfigs.find((c) => c.id === configId)
-      if (config) {
-        // Map from SDK config to form values
-        // This will need to be adjusted based on the actual data structure
-        const tradingFeePercentage =
-          (Number(config.account.poolFees.baseFee.cliffFeeNumerator) /
-            Number(FEE_DENOMINATOR)) *
-          100
-
-        const creatorFeePercentage = 1 // You'll need to extract this from your config data
-
-        setFormValues((prev) => ({
-          ...prev,
-          initialPrice: 0.000001, // Set based on your config data
-          maxSupply: 1000000000, // Set based on your config data
-          creatorFee: creatorFeePercentage,
-          tradingFee: tradingFeePercentage,
-          curveType: 'exponential', // Set based on your config data
-        }))
-      }
+    if (configId) {
+      form.setFieldValue('configPubkey', configId)
     }
-  }, [configId, userConfigs])
-
-  // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-    setError('')
-
-    // Simulate API call
-    setTimeout(() => {
-      try {
-        // In a real app, this would be an API call to create the pool
-        console.log('Creating pool with values:', formValues)
-        setIsSuccess(true)
-        setIsSubmitting(false)
-      } catch (err) {
-        setError('Failed to create pool. Please try again.')
-        setIsSubmitting(false)
-      }
-    }, 2000)
-  }
-
-  // Handle input changes
-  const handleInputChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
-  ) => {
-    const { name, value } = e.target
-    setFormValues((prev) => ({
-      ...prev,
-      [name]:
-        name === 'initialPrice' ||
-        name === 'maxSupply' ||
-        name === 'creatorFee' ||
-        name === 'tradingFee'
-          ? parseFloat(value)
-          : value,
-    }))
-  }
+  }, [configId])
 
   // Add a section to display the user's configs
   const renderUserConfigs = () => {
@@ -252,7 +224,7 @@ export default function CreatePool() {
           const lineColor = feePercentage > 2 ? '#ec4899' : '#3b82f6'
 
           // Check if this config is currently selected
-          const isSelected = config.id === configId
+          const isSelected = config.id === form.getFieldValue('configPubkey')
 
           return (
             <div
@@ -304,9 +276,14 @@ export default function CreatePool() {
                 </div>
               </div>
 
-              <Link
-                to={`/create-pool?config=${config.id}`}
-                preventScrollReset
+              <button
+                onClick={() => {
+                  form.setFieldValue('configPubkey', config.id)
+                  setSearchParams(
+                    { config: config.id },
+                    { preventScrollReset: true }
+                  )
+                }}
                 className={`mt-auto ${
                   isSelected
                     ? 'bg-purple-600 hover:bg-purple-700'
@@ -314,7 +291,7 @@ export default function CreatePool() {
                 } transition py-3 text-center text-sm font-medium w-full rounded-b-lg relative z-10`}
               >
                 {isSelected ? 'Selected Configuration' : 'Use This Config'}
-              </Link>
+              </button>
             </div>
           )
         })}
@@ -355,7 +332,9 @@ export default function CreatePool() {
           </div>
         )}
 
-        {isSuccess ? (
+        {form.state.isSubmitted &&
+        !form.state.isSubmitting &&
+        form.state.errors.length === 0 ? (
           <div className="bg-white/5 rounded-xl p-8 backdrop-blur-sm border border-white/10 text-center">
             <div className="bg-green-500/20 p-4 rounded-full inline-flex mb-6">
               <Check className="w-12 h-12 text-green-500" />
@@ -374,16 +353,24 @@ export default function CreatePool() {
               >
                 Explore Pools
               </Link>
-              <Link
-                to="/create-pool"
-                className="bg-gradient-to-r from-pink-500 to-purple-500 px-6 py-3 rounded-xl font-medium hover:opacity-90 transition"
+              <button
+                onClick={() => {
+                  window.location.reload()
+                }}
+                className="cursor-pointer bg-gradient-to-r from-pink-500 to-purple-500 px-6 py-3 rounded-xl font-medium hover:opacity-90 transition"
               >
                 Create Another Pool
-              </Link>
+              </button>
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-8">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              form.handleSubmit()
+            }}
+            className="space-y-8"
+          >
             {/* Token Details Section */}
             <div className="bg-white/5 rounded-xl p-8 backdrop-blur-sm border border-white/10">
               <h2 className="text-2xl font-bold mb-6">Token Details</h2>
@@ -397,17 +384,22 @@ export default function CreatePool() {
                     >
                       Token Name*
                     </label>
-                    <input
-                      id="tokenName"
-                      name="tokenName"
-                      type="text"
-                      className="w-full p-3 bg-white/5 border border-white/10 rounded-lg text-white"
-                      placeholder="e.g. Virtual Coin"
-                      value={formValues.tokenName}
-                      onChange={handleInputChange}
-                      required
-                      minLength={3}
-                    />
+                    {form.Field({
+                      name: 'tokenName',
+                      children: (field) => (
+                        <input
+                          id="tokenName"
+                          name={field.name}
+                          type="text"
+                          className="w-full p-3 bg-white/5 border border-white/10 rounded-lg text-white"
+                          placeholder="e.g. Virtual Coin"
+                          value={field.state.value}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          required
+                          minLength={3}
+                        />
+                      ),
+                    })}
                   </div>
 
                   <div className="mb-4">
@@ -417,35 +409,22 @@ export default function CreatePool() {
                     >
                       Token Symbol*
                     </label>
-                    <input
-                      id="tokenSymbol"
-                      name="tokenSymbol"
-                      type="text"
-                      className="w-full p-3 bg-white/5 border border-white/10 rounded-lg text-white"
-                      placeholder="e.g. VRTL"
-                      value={formValues.tokenSymbol}
-                      onChange={handleInputChange}
-                      required
-                      maxLength={10}
-                    />
-                  </div>
-
-                  <div className="mb-4">
-                    <label
-                      htmlFor="tokenDescription"
-                      className="block text-sm font-medium text-gray-300 mb-1"
-                    >
-                      Description
-                    </label>
-                    <textarea
-                      id="tokenDescription"
-                      name="tokenDescription"
-                      className="w-full p-3 bg-white/5 border border-white/10 rounded-lg text-white"
-                      placeholder="Describe your token"
-                      rows={4}
-                      value={formValues.tokenDescription || ''}
-                      onChange={handleInputChange}
-                    />
+                    {form.Field({
+                      name: 'tokenSymbol',
+                      children: (field) => (
+                        <input
+                          id="tokenSymbol"
+                          name={field.name}
+                          type="text"
+                          className="w-full p-3 bg-white/5 border border-white/10 rounded-lg text-white"
+                          placeholder="e.g. VRTL"
+                          value={field.state.value}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          required
+                          maxLength={10}
+                        />
+                      ),
+                    })}
                   </div>
                 </div>
 
@@ -464,12 +443,26 @@ export default function CreatePool() {
                     <p className="text-gray-400 text-sm mb-4">
                       PNG, JPG or SVG (max. 2MB)
                     </p>
-                    <button
-                      type="button"
-                      className="bg-white/10 px-4 py-2 rounded-lg text-sm hover:bg-white/20 transition"
+                    {form.Field({
+                      name: 'tokenLogo',
+                      children: (field) => (
+                        <input
+                          type="file"
+                          id="tokenLogo"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] || null
+                            field.handleChange(file)
+                          }}
+                        />
+                      ),
+                    })}
+                    <label
+                      htmlFor="tokenLogo"
+                      className="bg-white/10 px-4 py-2 rounded-lg text-sm hover:bg-white/20 transition cursor-pointer"
                     >
                       Browse Files
-                    </button>
+                    </label>
                   </div>
                 </div>
               </div>
@@ -489,15 +482,20 @@ export default function CreatePool() {
                   >
                     Website
                   </label>
-                  <input
-                    id="website"
-                    name="website"
-                    type="url"
-                    className="w-full p-3 bg-white/5 border border-white/10 rounded-lg text-white"
-                    placeholder="https://yourwebsite.com"
-                    value={formValues.website}
-                    onChange={handleInputChange}
-                  />
+                  {form.Field({
+                    name: 'website',
+                    children: (field) => (
+                      <input
+                        id="website"
+                        name={field.name}
+                        type="url"
+                        className="w-full p-3 bg-white/5 border border-white/10 rounded-lg text-white"
+                        placeholder="https://yourwebsite.com"
+                        value={field.state.value}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                      />
+                    ),
+                  })}
                 </div>
 
                 <div className="mb-4">
@@ -507,15 +505,20 @@ export default function CreatePool() {
                   >
                     Twitter
                   </label>
-                  <input
-                    id="twitter"
-                    name="twitter"
-                    type="url"
-                    className="w-full p-3 bg-white/5 border border-white/10 rounded-lg text-white"
-                    placeholder="https://twitter.com/yourusername"
-                    value={formValues.twitter}
-                    onChange={handleInputChange}
-                  />
+                  {form.Field({
+                    name: 'twitter',
+                    children: (field) => (
+                      <input
+                        id="twitter"
+                        name={field.name}
+                        type="url"
+                        className="w-full p-3 bg-white/5 border border-white/10 rounded-lg text-white"
+                        placeholder="https://twitter.com/yourusername"
+                        value={field.state.value}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                      />
+                    ),
+                  })}
                 </div>
 
                 <div className="mb-4">
@@ -525,42 +528,37 @@ export default function CreatePool() {
                   >
                     Telegram
                   </label>
-                  <input
-                    id="telegram"
-                    name="telegram"
-                    type="url"
-                    className="w-full p-3 bg-white/5 border border-white/10 rounded-lg text-white"
-                    placeholder="https://t.me/yourchannel"
-                    value={formValues.telegram}
-                    onChange={handleInputChange}
-                  />
-                </div>
-
-                <div className="mb-4">
-                  <label
-                    htmlFor="discord"
-                    className="block text-sm font-medium text-gray-300 mb-1"
-                  >
-                    Discord
-                  </label>
-                  <input
-                    id="discord"
-                    name="discord"
-                    type="url"
-                    className="w-full p-3 bg-white/5 border border-white/10 rounded-lg text-white"
-                    placeholder="https://discord.gg/yourinvite"
-                    value={formValues.discord}
-                    onChange={handleInputChange}
-                  />
+                  {form.Field({
+                    name: 'telegram',
+                    children: (field) => (
+                      <input
+                        id="telegram"
+                        name={field.name}
+                        type="url"
+                        className="w-full p-3 bg-white/5 border border-white/10 rounded-lg text-white"
+                        placeholder="https://t.me/yourchannel"
+                        value={field.state.value}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                      />
+                    ),
+                  })}
                 </div>
               </div>
             </div>
 
-            {/* Error Message */}
-            {error && (
-              <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4 flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-red-500 mt-0.5" />
-                <p className="text-red-200">{error}</p>
+            {/* Error Messages */}
+            {form.state.errors && form.state.errors.length > 0 && (
+              <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4 space-y-2">
+                {form.state.errors.map((error, index) =>
+                  Object.entries(error || {}).map(([key, value]) => (
+                    <div key={index} className="flex items-start gap-2">
+                      <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
+                      <p className="text-red-200">
+                        {value.map((v) => v.message).join(', ')}
+                      </p>
+                    </div>
+                  ))
+                )}
               </div>
             )}
 
@@ -568,10 +566,10 @@ export default function CreatePool() {
             <div className="flex justify-end">
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={form.state.isSubmitting}
                 className="bg-gradient-to-r from-pink-500 to-purple-500 px-8 py-4 rounded-xl font-medium hover:opacity-90 transition flex items-center gap-2 disabled:opacity-70"
               >
-                {isSubmitting ? (
+                {form.state.isSubmitting ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
                     <span>Creating Pool...</span>

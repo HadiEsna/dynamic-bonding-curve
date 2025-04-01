@@ -10,7 +10,6 @@
     "@solana/web3.js": "^1.98.0",
     "bn.js": "^5.2.1",
     "typescript": "^5"
-
   },
   "devDependencies": {
     "@types/bun": "latest"

@@ -890,6 +890,7 @@ export type VirtualCurve = {
         },
         {
           name: 'tokenProgram'
+          docs: ['token program for base mint']
           address: 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'
         },
         {
@@ -2049,7 +2050,7 @@ export type VirtualCurve = {
     {
       code: 6008
       name: 'invalidQuoteMint'
-      msg: 'Quote token must be SOL,USDC'
+      msg: 'Invalid quote mint'
     },
     {
       code: 6009
@@ -2150,6 +2151,11 @@ export type VirtualCurve = {
       code: 6028
       name: 'totalBaseTokenExceedMaxSupply'
       msg: 'Total base token is exceeded max supply'
+    },
+    {
+      code: 6029
+      name: 'unsupportNativeMintToken2022'
+      msg: 'Unsupport native mint token 2022'
     }
   ]
   types: [
@@ -2818,7 +2824,7 @@ export type VirtualCurve = {
             type: 'u8'
           },
           {
-            name: 'isReferral'
+            name: 'hasReferral'
             type: 'bool'
           },
           {
@@ -3067,21 +3073,24 @@ export type VirtualCurve = {
             type: 'u8'
           },
           {
-            name: 'tokenType'
-            docs: ['token type']
-            type: 'u8'
-          },
-          {
             name: 'creatorPostMigrationFeePercentage'
             docs: ['creator post migration fee percentage']
             type: 'u8'
           },
           {
-            name: 'padding0'
-            docs: ['padding 0']
-            type: {
-              array: ['u8', 2]
-            }
+            name: 'version'
+            docs: ['version']
+            type: 'u8'
+          },
+          {
+            name: 'tokenType'
+            docs: ['token type of base token']
+            type: 'u8'
+          },
+          {
+            name: 'quoteTokenFlag'
+            docs: ['quote token flag']
+            type: 'u8'
           },
           {
             name: 'swapBaseAmount'
@@ -3099,8 +3108,8 @@ export type VirtualCurve = {
             type: 'u64'
           },
           {
-            name: 'padding'
-            docs: ['padding']
+            name: 'padding1'
+            docs: ['padding 1']
             type: {
               array: ['u128', 8]
             }
@@ -3351,6 +3360,10 @@ export type VirtualCurve = {
       type: {
         kind: 'struct'
         fields: [
+          {
+            name: 'actualInputAmount'
+            type: 'u64'
+          },
           {
             name: 'outputAmount'
             type: 'u64'
@@ -4144,6 +4157,7 @@ export const Idl: VirtualCurve = {
         },
         {
           name: 'tokenProgram',
+          docs: ['token program for base mint'],
           address: 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb',
         },
         {
@@ -4982,7 +4996,7 @@ export const Idl: VirtualCurve = {
     {
       code: 6008,
       name: 'invalidQuoteMint',
-      msg: 'Quote token must be SOL,USDC',
+      msg: 'Invalid quote mint',
     },
     {
       code: 6009,
@@ -5083,6 +5097,11 @@ export const Idl: VirtualCurve = {
       code: 6028,
       name: 'totalBaseTokenExceedMaxSupply',
       msg: 'Total base token is exceeded max supply',
+    },
+    {
+      code: 6029,
+      name: 'unsupportNativeMintToken2022',
+      msg: 'Unsupport native mint token 2022',
     },
   ],
   types: [
@@ -5751,7 +5770,7 @@ export const Idl: VirtualCurve = {
             type: 'u8',
           },
           {
-            name: 'isReferral',
+            name: 'hasReferral',
             type: 'bool',
           },
           {
@@ -6000,21 +6019,24 @@ export const Idl: VirtualCurve = {
             type: 'u8',
           },
           {
-            name: 'tokenType',
-            docs: ['token type'],
-            type: 'u8',
-          },
-          {
             name: 'creatorPostMigrationFeePercentage',
             docs: ['creator post migration fee percentage'],
             type: 'u8',
           },
           {
-            name: 'padding0',
-            docs: ['padding 0'],
-            type: {
-              array: ['u8', 2],
-            },
+            name: 'version',
+            docs: ['version'],
+            type: 'u8',
+          },
+          {
+            name: 'tokenType',
+            docs: ['token type of base token'],
+            type: 'u8',
+          },
+          {
+            name: 'quoteTokenFlag',
+            docs: ['quote token flag'],
+            type: 'u8',
           },
           {
             name: 'swapBaseAmount',
@@ -6032,8 +6054,8 @@ export const Idl: VirtualCurve = {
             type: 'u64',
           },
           {
-            name: 'padding',
-            docs: ['padding'],
+            name: 'padding1',
+            docs: ['padding 1'],
             type: {
               array: ['u128', 8],
             },
@@ -6284,6 +6306,10 @@ export const Idl: VirtualCurve = {
       type: {
         kind: 'struct',
         fields: [
+          {
+            name: 'actualInputAmount',
+            type: 'u64',
+          },
           {
             name: 'outputAmount',
             type: 'u64',

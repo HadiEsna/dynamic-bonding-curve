@@ -2,6 +2,7 @@ import {
   Connection,
   Keypair,
   PublicKey,
+  SystemProgram,
   Transaction,
   TransactionInstruction,
   sendAndConfirmTransaction,
@@ -31,6 +32,7 @@ import {
 } from './types'
 import BN from 'bn.js'
 import { quoteExactIn } from './quote'
+import { METADATA_PROGRAM_ID } from './constants'
 
 // Define a type for accounts that might have optional fields
 type AccountsWithOptionalFields<T, K extends keyof T> = {
@@ -195,18 +197,85 @@ export class VirtualCurveSDK {
 
   // User Functions
   async initializeVirtualPoolWithSplToken(
-    params: Omit<
-      InitializeVirtualPoolWithSplTokenAccounts,
-      'program' | 'eventAuthority'
-    > & {
-      initializeParams: InitializePoolParameters
-    }
+    params: Required<
+      Omit<
+        InitializeVirtualPoolWithSplTokenAccounts,
+        | 'program'
+        | 'eventAuthority'
+        | 'baseVault'
+        | 'quoteVault'
+        | 'pool'
+        | 'systemProgram'
+        | 'metadataAddress'
+        | 'mintMetadata'
+        | 'metadataProgram'
+        | 'poolAuthority'
+      >
+    >,
+    initializeParams: InitializePoolParameters
   ) {
-    const { initializeParams, ...rest } = params
-    const accounts = {
-      ...rest,
+    const isQuoteMintBiggerThanBaseMint =
+      new PublicKey(params.quoteMint!)
+        .toBuffer()
+        .compare(new Uint8Array(new PublicKey(params.baseMint!).toBuffer())) > 0
+
+    const [poolAuthority] = PublicKey.findProgramAddressSync(
+      [Buffer.from('pool_authority')],
+      this.program.programId
+    )
+
+    const [pool] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from('pool'),
+        new PublicKey(params.config).toBuffer(),
+        isQuoteMintBiggerThanBaseMint
+          ? new PublicKey(params.quoteMint).toBuffer()
+          : new PublicKey(params.baseMint!).toBuffer(),
+        isQuoteMintBiggerThanBaseMint
+          ? new PublicKey(params.baseMint!).toBuffer()
+          : new PublicKey(params.quoteMint).toBuffer(),
+      ],
+      this.program.programId
+    )
+
+    const [baseVault] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from('token_vault'),
+        new PublicKey(params.baseMint!).toBuffer(),
+        pool.toBuffer(),
+      ],
+      this.program.programId
+    )
+
+    const [quoteVault] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from('token_vault'),
+        new PublicKey(params.quoteMint!).toBuffer(),
+        pool.toBuffer(),
+      ],
+      this.program.programId
+    )
+
+    const [mintMetadata] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from('metadata'),
+        METADATA_PROGRAM_ID.toBuffer(),
+        new PublicKey(params.baseMint!).toBuffer(),
+      ],
+      METADATA_PROGRAM_ID
+    )
+
+    const accounts: InitializeVirtualPoolWithSplTokenAccounts = {
+      ...params,
+      poolAuthority,
+      systemProgram: SystemProgram.programId,
       eventAuthority: this.getEventAuthority(),
       program: this.program.programId,
+      baseVault,
+      quoteVault,
+      pool,
+      metadataProgram: METADATA_PROGRAM_ID,
+      mintMetadata,
     }
 
     const ix = await this.program.methods
@@ -392,6 +461,14 @@ export class VirtualCurveSDK {
     return await this.program.account.poolConfig.all(filters)
   }
 
+  async getPoolConfig(configAddress: PublicKey | string) {
+    const address =
+      typeof configAddress === 'string'
+        ? new PublicKey(configAddress)
+        : configAddress
+    return await this.program.account.poolConfig.fetch(address)
+  }
+
   quoteExactIn(
     virtualPool: VirtualPool,
     config: PoolConfig,
@@ -410,3 +487,5 @@ export class VirtualCurveSDK {
     )
   }
 }
+
+export * from './constants'

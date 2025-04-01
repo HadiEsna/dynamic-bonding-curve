@@ -489,39 +489,27 @@ const app = new Elysia({
     async ({ body }) => {
       const {
         config,
-        poolAuthority,
         creator,
         baseMint,
         quoteMint,
-        pool,
-        baseVault,
-        quoteVault,
-        mintMetadata,
-        metadataProgram,
         payer,
         tokenQuoteProgram,
         tokenProgram,
-        systemProgram,
         initializeParams,
       } = body
 
-      const ix = await sdk.initializeVirtualPoolWithSplToken({
-        config: toPublicKey(config),
-        poolAuthority: toPublicKey(poolAuthority),
-        creator: toPublicKey(creator),
-        baseMint: toPublicKey(baseMint),
-        quoteMint: toPublicKey(quoteMint),
-        pool: toPublicKey(pool),
-        baseVault: toPublicKey(baseVault),
-        quoteVault: toPublicKey(quoteVault),
-        mintMetadata: toPublicKey(mintMetadata),
-        metadataProgram: toPublicKey(metadataProgram),
-        payer: toPublicKey(payer),
-        tokenQuoteProgram: toPublicKey(tokenQuoteProgram),
-        tokenProgram: toPublicKey(tokenProgram),
-        systemProgram: toPublicKey(systemProgram),
-        initializeParams,
-      })
+      const ix = await sdk.initializeVirtualPoolWithSplToken(
+        {
+          config: toPublicKey(config),
+          creator: toPublicKey(creator),
+          baseMint: toPublicKey(baseMint),
+          quoteMint: toPublicKey(quoteMint),
+          payer: toPublicKey(payer),
+          tokenQuoteProgram: toPublicKey(tokenQuoteProgram),
+          tokenProgram: toPublicKey(tokenProgram),
+        },
+        initializeParams
+      )
 
       return {
         instruction: {
@@ -538,20 +526,17 @@ const app = new Elysia({
     {
       body: t.Object({
         config: publicKeySchema,
-        poolAuthority: publicKeySchema,
         creator: publicKeySchema,
         baseMint: publicKeySchema,
         quoteMint: publicKeySchema,
-        pool: publicKeySchema,
-        baseVault: publicKeySchema,
-        quoteVault: publicKeySchema,
-        mintMetadata: publicKeySchema,
-        metadataProgram: publicKeySchema,
         payer: publicKeySchema,
         tokenQuoteProgram: publicKeySchema,
         tokenProgram: publicKeySchema,
-        systemProgram: publicKeySchema,
-        initializeParams: t.Any(),
+        initializeParams: t.Object({
+          name: t.String(),
+          symbol: t.String(),
+          uri: t.String(),
+        }),
       }),
       response: instructionResponseSchema,
       detail: {
