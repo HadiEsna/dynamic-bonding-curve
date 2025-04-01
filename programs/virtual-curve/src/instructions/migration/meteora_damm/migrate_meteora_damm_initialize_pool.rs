@@ -1,5 +1,7 @@
 use anchor_lang::solana_program::{program::invoke, system_instruction};
-use anchor_spl::token::{Burn, Token, TokenAccount};
+use anchor_spl::token::{
+    spl_token::instruction::AuthorityType, Burn, SetAuthority, Token, TokenAccount,
+};
 
 use crate::{
     activation_handler::get_current_point,
@@ -9,6 +11,7 @@ use crate::{
         MeteoraDammMigrationMetadata, MigrationMeteoraDammProgress, MigrationOption, PoolConfig,
         VirtualPool,
     },
+    u128x128_math::Rounding,
     utils_math::safe_mul_div_cast_u64,
     *,
 };
@@ -281,12 +284,30 @@ pub fn handle_migrate_meteora_damm<'info>(
         )?;
     }
 
+    // remove mint authority
+    {
+        let seeds = pool_authority_seeds!(ctx.bumps.pool_authority);
+        anchor_spl::token::set_authority(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                SetAuthority {
+                    current_authority: ctx.accounts.pool_authority.to_account_info(),
+                    account_or_mint: ctx.accounts.token_a_mint.to_account_info(),
+                },
+                &[&seeds[..]],
+            ),
+            AuthorityType::MintTokens,
+            Some(Pubkey::default()),
+        )?;
+    }
+
     let lp_minted_amount = anchor_spl::token::accessor::amount(&ctx.accounts.virtual_pool_lp)?;
 
     let lp_minted_amount_for_creator = safe_mul_div_cast_u64(
         lp_minted_amount,
         config.creator_post_migration_fee_percentage.into(),
         100,
+        Rounding::Down,
     )?;
     let lp_minted_amount_for_partner = lp_minted_amount.safe_sub(lp_minted_amount_for_creator)?;
     migration_metadata.set_lp_minted(
