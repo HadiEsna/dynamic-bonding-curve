@@ -7,9 +7,11 @@ use crate::{
     params::{
         fee_parameters::PoolFeeParamters,
         liquidity_distribution::{
-            get_minimum_base_token_for_curve, LiquidityDistributionParameters,
+            get_base_token_for_swap, get_migration_base_token, get_migration_threshold_price,
+            LiquidityDistributionParameters,
         },
     },
+    safe_math::SafeMath,
     state::{CollectFeeMode, MigrationOption, PoolConfig, TokenType},
     token::{get_token_program_flags, is_supported_quote_mint},
     EvtCreateConfig, PoolError,
@@ -23,7 +25,10 @@ pub struct ConfigParameters {
     pub activation_type: u8,
     pub token_type: u8,
     pub token_decimal: u8,
-    pub creator_post_migration_fee_percentage: u8,
+    pub partner_lp_percentage: u8,
+    pub partner_locked_lp_percentage: u8,
+    pub creator_lp_percentage: u8,
+    pub creator_locked_lp_percentage: u8,
     pub migration_quote_threshold: u64,
     pub sqrt_start_price: u128,
     /// padding for future use
@@ -50,22 +55,25 @@ impl ConfigParameters {
         // validate migration option and token type
         let migration_option_value = MigrationOption::try_from(self.migration_option)
             .map_err(|_| PoolError::InvalidMigrationOption)?;
-        let _token_type_value =
+        let token_type_value =
             TokenType::try_from(self.token_type).map_err(|_| PoolError::InvalidTokenType)?;
 
-        if migration_option_value == MigrationOption::MeteoraDamm {
-            // skip that check to test create pool with token2022 in local
-            #[cfg(not(feature = "local"))]
-            require!(
-                _token_type_value == TokenType::SplToken,
-                PoolError::InvalidTokenType
-            );
-
-            #[cfg(not(feature = "local"))]
-            require!(
-                *quote_mint.to_account_info().owner == anchor_spl::token::Token::id(),
-                PoolError::InvalidQuoteMint
-            );
+        match migration_option_value {
+            MigrationOption::MeteoraDamm => {
+                require!(
+                    token_type_value == TokenType::SplToken,
+                    PoolError::InvalidTokenType
+                );
+                require!(
+                    *quote_mint.to_account_info().owner == anchor_spl::token::Token::id(),
+                    PoolError::InvalidQuoteMint
+                );
+            }
+            MigrationOption::DammV2 => {
+                // skip that check, we will deploy damm v2 soon
+                // #[cfg(not(feature = "local"))]
+                // return Err(PoolError::InvalidMigrationOption.into());
+            }
         }
 
         // validate activation type
@@ -80,10 +88,12 @@ impl ConfigParameters {
             PoolError::InvalidTokenDecimals
         );
 
-        require!(
-            self.creator_post_migration_fee_percentage <= 100,
-            PoolError::InvalidFeePercentage
-        );
+        let sum_lp_percentage = self
+            .partner_lp_percentage
+            .safe_add(self.partner_locked_lp_percentage)?
+            .safe_add(self.creator_lp_percentage)?
+            .safe_add(self.creator_locked_lp_percentage)?;
+        require!(sum_lp_percentage == 100, PoolError::InvalidFeePercentage);
 
         require!(
             self.sqrt_start_price >= MIN_SQRT_PRICE && self.sqrt_start_price < MAX_SQRT_PRICE,
@@ -155,15 +165,26 @@ pub fn handle_create_config(
         activation_type,
         token_type,
         token_decimal,
-        creator_post_migration_fee_percentage,
+        partner_lp_percentage,
+        partner_locked_lp_percentage,
+        creator_lp_percentage,
+        creator_locked_lp_percentage,
         migration_quote_threshold,
         sqrt_start_price,
         curve,
         ..
     } = config_parameters;
 
-    let (swap_base_amount, migration_base_amount) =
-        get_minimum_base_token_for_curve(migration_quote_threshold, sqrt_start_price, &curve)?;
+    let sqrt_migration_price =
+        get_migration_threshold_price(migration_quote_threshold, sqrt_start_price, &curve)?;
+    let swap_base_amount = get_base_token_for_swap(sqrt_start_price, sqrt_migration_price, &curve)?;
+
+    let migration_base_amount = get_migration_base_token(
+        migration_quote_threshold,
+        sqrt_migration_price,
+        MigrationOption::try_from(migration_option)
+            .map_err(|_| PoolError::InvalidMigrationOption)?,
+    )?;
 
     let total_base_with_buffer =
         PoolConfig::total_amount_with_buffer(swap_base_amount, migration_base_amount)?;
@@ -185,10 +206,14 @@ pub fn handle_create_config(
         token_decimal,
         token_type,
         get_token_program_flags(&ctx.accounts.quote_mint).into(),
-        creator_post_migration_fee_percentage,
+        partner_locked_lp_percentage,
+        partner_lp_percentage,
+        creator_locked_lp_percentage,
+        creator_lp_percentage,
         swap_base_amount,
         migration_quote_threshold,
         migration_base_amount,
+        sqrt_migration_price,
         sqrt_start_price,
         &curve,
     );
@@ -204,6 +229,10 @@ pub fn handle_create_config(
         activation_type,
         token_decimal,
         token_type,
+        partner_locked_lp_percentage,
+        partner_lp_percentage,
+        creator_locked_lp_percentage,
+        creator_lp_percentage,
         swap_base_amount,
         migration_quote_threshold,
         migration_base_amount,

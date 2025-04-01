@@ -93,11 +93,14 @@ describe("Create pool with token2022", () => {
             },
             activationType: 0,
             collectFeeMode: 0,
-            migrationOption: 0,
+            migrationOption: 1, // damm v2
             tokenType: 1, // token 2022
             tokenDecimal: 6,
             migrationQuoteThreshold: new BN(LAMPORTS_PER_SOL * 5),
-            creatorPostMigrationFeePercentage: 5,
+            partnerLpPercentage: 0,
+            creatorLpPercentage: 0,
+            partnerLockedLpPercentage: 95,
+            creatorLockedLpPercentage: 5,
             sqrtStartPrice: MIN_SQRT_PRICE.shln(32),
             padding: [],
             curve: curves,

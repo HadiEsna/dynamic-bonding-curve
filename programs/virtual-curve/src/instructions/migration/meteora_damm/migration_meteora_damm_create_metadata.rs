@@ -1,11 +1,13 @@
 use anchor_lang::prelude::*;
 
-use crate::state::{MigrationMeteoraDammProgress, PoolConfig};
+use crate::state::{MigrationOption, PoolConfig};
 use crate::{
-    constants::seeds::METEORA_METADATA_PREFIX,
-    state::{MeteoraDammMigrationMetadata, VirtualPool},
+    constants::seeds::METEORA_METADATA_PREFIX, state::VirtualPool,
     EvtCreateMeteoraMigrationMetadata,
 };
+use crate::{MigrationMeteoraDammProgress, PoolError};
+
+use super::MeteoraDammMigrationMetadata;
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -38,9 +40,15 @@ pub fn handle_migration_meteora_damm_create_metadata(
 ) -> Result<()> {
     let virtual_pool = ctx.accounts.virtual_pool.load()?;
     let config = ctx.accounts.config.load()?;
+    let migration_option = MigrationOption::try_from(config.migration_option)
+        .map_err(|_| PoolError::InvalidMigrationOption)?;
+    require!(
+        migration_option == MigrationOption::MeteoraDamm,
+        PoolError::InvalidMigrationOption
+    );
     let mut migration_metadata = ctx.accounts.migration_metadata.load_init()?;
     migration_metadata.virtual_pool = ctx.accounts.virtual_pool.key();
-    migration_metadata.owner = virtual_pool.creator;
+    migration_metadata.pool_creator = virtual_pool.creator;
     migration_metadata.partner = config.fee_claimer;
 
     migration_metadata.set_progress(MigrationMeteoraDammProgress::Init.into());

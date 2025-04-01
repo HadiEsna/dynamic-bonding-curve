@@ -4,15 +4,20 @@ use anchor_lang::prelude::*;
 use ruint::aliases::U256;
 
 use crate::{
+    constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     curve::{
-        get_delta_amount_base_unsigned, get_delta_amount_quote_unsigned_256,
+        get_delta_amount_base_unsigned, get_delta_amount_base_unsigned_256,
+        get_delta_amount_quote_unsigned_256, get_initial_liquidity_from_delta_quote,
         get_next_sqrt_price_from_input,
     },
     safe_math::SafeMath,
-    state::LiquidityDistributionConfig,
+    state::{LiquidityDistributionConfig, MigrationOption},
     u128x128_math::Rounding,
     PoolError,
 };
+
+#[cfg(feature = "local")]
+use crate::curve::get_initialize_amounts;
 
 #[derive(Copy, Clone, Debug, AnchorSerialize, AnchorDeserialize, InitSpace, Default)]
 pub struct LiquidityDistributionParameters {
@@ -29,21 +34,7 @@ impl LiquidityDistributionParameters {
     }
 }
 
-pub fn get_minimum_base_token_for_curve(
-    migration_threshold: u64,
-    sqrt_start_price: u128,
-    curve: &[LiquidityDistributionParameters],
-) -> Result<(u64, u64)> {
-    let sqrt_migration_price =
-        get_migration_threshold_price(migration_threshold, sqrt_start_price, curve)?;
-    let migration_base_amount =
-        get_migration_base_token_for_constant_product(migration_threshold, sqrt_migration_price)?;
-    let swap_base_amount = get_base_token_for_swap(sqrt_start_price, sqrt_migration_price, curve)?;
-
-    Ok((swap_base_amount, migration_base_amount))
-}
-
-fn get_base_token_for_swap(
+pub fn get_base_token_for_swap(
     sqrt_start_price: u128,
     sqrt_migration_price: u128,
     curve: &[LiquidityDistributionParameters],
@@ -77,21 +68,68 @@ fn get_base_token_for_swap(
     Ok(total_amount)
 }
 
-fn get_migration_base_token_for_constant_product(
+pub fn get_migration_base_token(
     migration_threshold: u64,
     sqrt_migration_price: u128,
+    migration_option: MigrationOption,
 ) -> Result<u64> {
-    let sqrt_migration_price = U256::from(sqrt_migration_price);
-    // price = quote / base for constant-product
-    // base = quote / price
-    let price = sqrt_migration_price.safe_mul(sqrt_migration_price)?;
-    let quote = U256::from(migration_threshold).safe_shl(128)?;
-    let base = quote.safe_div(price)?;
-    require!(base <= U256::from(u64::MAX), PoolError::MathOverflow);
-    return Ok(base.try_into().map_err(|_| PoolError::TypeCastFailed)?);
+    match migration_option {
+        MigrationOption::MeteoraDamm => {
+            // constant product
+            let sqrt_migration_price = U256::from(sqrt_migration_price);
+            // price = quote / base for constant-product
+            // base = quote / price
+            let price = sqrt_migration_price.safe_mul(sqrt_migration_price)?;
+            let quote = U256::from(migration_threshold).safe_shl(128)?;
+            let base = quote.safe_div(price)?;
+            require!(base <= U256::from(u64::MAX), PoolError::MathOverflow);
+            Ok(base.try_into().map_err(|_| PoolError::TypeCastFailed)?)
+        }
+        MigrationOption::DammV2 => {
+            // calculate to L firsty
+            let liquidity = get_initial_liquidity_from_delta_quote(
+                migration_threshold,
+                MIN_SQRT_PRICE,
+                sqrt_migration_price,
+            )?;
+            // calculate base threshold
+            let base_amount = get_delta_amount_base_unsigned_256(
+                sqrt_migration_price,
+                MAX_SQRT_PRICE,
+                liquidity,
+                Rounding::Up,
+            )?;
+            require!(base_amount <= U256::from(u64::MAX), PoolError::MathOverflow);
+            let base_amount = base_amount
+                .try_into()
+                .map_err(|_| PoolError::TypeCastFailed)?;
+
+            // re-validation
+            #[cfg(feature = "local")]
+            {
+                let (_initial_base_amount, initial_quote_amount) = get_initialize_amounts(
+                    MIN_SQRT_PRICE,
+                    MAX_SQRT_PRICE,
+                    sqrt_migration_price,
+                    liquidity,
+                )?;
+                // TODO no need to validate for _initial_base_amount?
+                msg!(
+                    "debug dammv2 {} {}",
+                    initial_quote_amount,
+                    migration_threshold
+                );
+                require!(
+                    initial_quote_amount <= migration_threshold,
+                    PoolError::InsufficentLiquidityForMigration
+                );
+            }
+            Ok(base_amount)
+        }
+    }
 }
 
-fn get_migration_threshold_price(
+pub fn get_migration_threshold_price(
     migration_threshold: u64,
     sqrt_start_price: u128,
     curve: &[LiquidityDistributionParameters],
