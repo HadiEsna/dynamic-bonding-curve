@@ -32,7 +32,7 @@ export const TEMPLATES: Record<
     tokenType: number
     creatorPostMigrationFeePercentage: number
     migrationQuoteThreshold: number
-    sqrtStartPrice: number
+    sqrtStartPrice: string
     liquidityDistribution: Array<{ sqrtPrice: string; liquidity: string }>
   }
 > = {
@@ -48,13 +48,13 @@ export const TEMPLATES: Record<
       feeSchedulerMode: 0, // FLAT (constant fee)
     },
     dynamicFee: {
-      binStep: 60, // Middle ground between both templates
-      binStepU128: 60,
-      filterPeriod: 375, // 6.25 minutes (middle ground)
-      decayPeriod: 375, // 6.25 minutes
-      reductionFactor: 8, // Middle ground
-      maxVolatilityAccumulator: 65000, // Middle ground
-      variableFeeControl: 6500, // Middle ground
+      binStep: 0,
+      binStepU128: 0,
+      filterPeriod: 0,
+      decayPeriod: 0,
+      reductionFactor: 0,
+      maxVolatilityAccumulator: 0,
+      variableFeeControl: 0,
     },
     collectFeeMode: 0, // QuoteToken only (from both templates)
     migrationOption: 0, // MeteoraDAMM
@@ -65,11 +65,11 @@ export const TEMPLATES: Record<
     migrationQuoteThreshold: LAMPORTS_PER_SOL * 500,
 
     // Simplified curve with just min and max points
-    sqrtStartPrice: 4295048016, // Min valid sqrtPrice
+    sqrtStartPrice: '97539491880527374', // Min valid sqrtPrice
     liquidityDistribution: [
       {
         sqrtPrice: '79226673521066979257578248091',
-        liquidity: '50000000000000000000000000000',
+        liquidity: '103301766812773489049600000000000',
       }, // 10x more liquidity
     ],
   },
@@ -101,7 +101,7 @@ export const TEMPLATES: Record<
     creatorPostMigrationFeePercentage: 0,
     migrationQuoteThreshold: LAMPORTS_PER_SOL * 300,
     // Simplified curve with just min and max points
-    sqrtStartPrice: 4295048016, // Min valid sqrtPrice
+    sqrtStartPrice: '4295048016', // Min valid sqrtPrice
     liquidityDistribution: [
       { sqrtPrice: '79226673521066979257578248091', liquidity: '500000000' }, // Increased from 100000000
     ],
@@ -134,7 +134,7 @@ export const TEMPLATES: Record<
     creatorPostMigrationFeePercentage: 0,
     migrationQuoteThreshold: LAMPORTS_PER_SOL * 500,
     // Custom curve with 4 points to create distinct segments (P1, P2, P3, P4)
-    sqrtStartPrice: 4295048016, // Min valid sqrtPrice
+    sqrtStartPrice: '4295048016', // Min valid sqrtPrice
     liquidityDistribution: [
       { sqrtPrice: '429504801600', liquidity: '600000000' }, // 100x starting price
       { sqrtPrice: '4295048016000', liquidity: '500000000' }, // 1000x starting price

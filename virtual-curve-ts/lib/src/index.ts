@@ -23,7 +23,7 @@ import {
   type InitializeVirtualPoolWithSplTokenAccounts,
   type InitializeVirtualPoolWithToken2022Accounts,
   type SwapAccounts,
-  type MigrationMeteoraDammCreateMetadataAccounts,
+  type MigrationDammV2CreateMetadataAccounts,
   type MigrateMeteoraDammAccounts,
   type MigrateMeteoraDammLockLpTokenForCreatorAccounts,
   type MigrateMeteoraDammLockLpTokenForPartnerAccounts,
@@ -32,7 +32,11 @@ import {
 } from './types'
 import BN from 'bn.js'
 import { quoteExactIn } from './quote'
-import { METADATA_PROGRAM_ID } from './constants'
+import { METADATA_PROGRAM_ID, SOL_MINT, TOKEN_PROGRAM_ID } from './constants'
+import {
+  createAssociatedTokenAccountIdempotentInstruction,
+  findAssociatedTokenAddress,
+} from './ata'
 
 // Define a type for accounts that might have optional fields
 type AccountsWithOptionalFields<T, K extends keyof T> = {
@@ -99,11 +103,10 @@ export class VirtualCurveSDK {
 
   // Partner Functions
   async createConfig(
-    params: Omit<CreateConfigAccounts, 'program' | 'eventAuthority'> & {
-      configParameters: ConfigParameters
-    }
+    params: Omit<CreateConfigAccounts, 'program' | 'eventAuthority'>,
+    configParameters: ConfigParameters
   ) {
-    const { configParameters, ...rest } = params
+    const { ...rest } = params
     const accounts = {
       ...rest,
       eventAuthority: this.getEventAuthority(),
@@ -119,20 +122,14 @@ export class VirtualCurveSDK {
   }
 
   async migrationMeteoraDammCreateMetadata(
-    params: Omit<
-      MigrationMeteoraDammCreateMetadataAccounts,
-      'program' | 'eventAuthority'
-    >
+    params: Omit<MigrationDammV2CreateMetadataAccounts, 'program'>
   ) {
-    const accounts = {
-      ...params,
-      eventAuthority: this.getEventAuthority(),
-      program: this.program.programId,
-    }
-
     const ix = await this.program.methods
       .migrationMeteoraDammCreateMetadata()
-      .accounts(accounts)
+      .accounts({
+        ...params,
+        program: this.program.programId,
+      })
       .instruction()
 
     return ix
@@ -287,14 +284,10 @@ export class VirtualCurveSDK {
   }
 
   async initializeVirtualPoolWithToken2022(
-    params: Omit<
-      InitializeVirtualPoolWithToken2022Accounts,
-      'program' | 'eventAuthority'
-    > & {
-      initializeParams: InitializePoolParameters
-    }
+    params: Omit<InitializeVirtualPoolWithToken2022Accounts, 'program'>,
+    initializeParams: InitializePoolParameters
   ) {
-    const { initializeParams, ...rest } = params
+    const { ...rest } = params
     const accounts = {
       ...rest,
       eventAuthority: this.getEventAuthority(),
@@ -303,7 +296,10 @@ export class VirtualCurveSDK {
 
     const ix = await this.program.methods
       .initializeVirtualPoolWithToken2022(initializeParams)
-      .accounts(accounts)
+      .accounts({
+        ...accounts,
+        program: this.program.programId,
+      })
       .instruction()
 
     return ix
@@ -312,32 +308,80 @@ export class VirtualCurveSDK {
   async swap(
     params: Omit<
       SwapAccounts,
-      'program' | 'eventAuthority' | 'referralTokenAccount'
-    > & {
-      referralTokenAccount?: PublicKey
-      swapParams: SwapParameters
-    }
+      | 'program'
+      | 'eventAuthority'
+      | 'inputTokenAccount'
+      | 'outputTokenAccount'
+      | 'poolAuthority'
+    > & { user: PublicKey },
+    swapParams: SwapParameters
   ) {
-    const { swapParams, referralTokenAccount, ...rest } = params
+    const [poolAuthority] = PublicKey.findProgramAddressSync(
+      [Buffer.from('pool_authority')],
+      this.program.programId
+    )
 
-    // Create a base accounts object
-    const baseAccounts: any = {
-      ...rest,
-      eventAuthority: this.getEventAuthority(),
-      program: this.program.programId,
-    }
+    const isSOL = params.quoteMint.toString() === SOL_MINT.toString()
+    // const inputTokenAccount = isSOL
+    //   ? params.user
+    //   : findAssociatedTokenAddress(
+    //       params.user,
+    //       new PublicKey(params.quoteMint),
+    //       new PublicKey(params.tokenQuoteProgram)
+    //     )
+    const inputTokenAccount = findAssociatedTokenAddress(
+      params.user,
+      new PublicKey(params.quoteMint),
+      new PublicKey(params.tokenQuoteProgram)
+    )
 
-    // Add referralTokenAccount if provided
-    if (referralTokenAccount) {
-      baseAccounts.referralTokenAccount = referralTokenAccount
+    const outputTokenAccount = findAssociatedTokenAddress(
+      params.user,
+      new PublicKey(params.baseMint),
+      new PublicKey(params.tokenBaseProgram)
+    )
+
+    const ixs = []
+    if (isSOL) {
+      ixs.push(
+        SystemProgram.transfer({
+          fromPubkey: params.user,
+          toPubkey: inputTokenAccount,
+          lamports: swapParams.amountIn.toNumber(),
+        }),
+        new TransactionInstruction({
+          keys: [
+            {
+              pubkey: inputTokenAccount,
+              isSigner: false,
+              isWritable: true,
+            },
+          ],
+          data: Buffer.from(new Uint8Array([17])),
+          programId: TOKEN_PROGRAM_ID,
+        })
+      )
     }
+    ixs.push(
+      createAssociatedTokenAccountIdempotentInstruction(
+        params.user,
+        outputTokenAccount,
+        params.user,
+        new PublicKey(params.baseMint)
+      )
+    )
 
     const ix = await this.program.methods
       .swap(swapParams)
-      .accounts(baseAccounts)
+      .accounts({
+        ...params,
+        inputTokenAccount,
+        outputTokenAccount,
+        program: this.program.programId,
+      })
       .instruction()
-
-    return ix
+    ixs.push(ix)
+    return ixs
   }
 
   // Fee Management

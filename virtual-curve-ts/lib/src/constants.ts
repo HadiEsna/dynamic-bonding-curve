@@ -10,3 +10,9 @@ export const TOKEN_PROGRAM_ID = new PublicKey(
 export const TOKEN_PROGRAM_2022_ID = new PublicKey(
   'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'
 )
+export const ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID: PublicKey = new PublicKey(
+  'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'
+)
+export const SOL_MINT = new PublicKey(
+  'So11111111111111111111111111111111111111112'
+)

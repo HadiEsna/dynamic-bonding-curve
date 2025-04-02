@@ -44,31 +44,55 @@ export type CreateConfigAccounts = Accounts<
 //   tokenProgram: Address;
 //   tokenQuoteProgram: Address;
 // }
-export type InitializeVirtualPoolWithSplTokenAccounts = Accounts<
+export type CreatorClaimLpFromMeteoraDynamicAmmAccounts = Accounts<
   IDL['instructions']['5']
+>['creatorClaimLpFromMeteoraDynamicAmm']
+export type InitializeVirtualPoolWithSplTokenAccounts = Accounts<
+  IDL['instructions']['6']
 >['initializeVirtualPoolWithSplToken']
 export type InitializeVirtualPoolWithToken2022Accounts = Accounts<
-  IDL['instructions']['6']
+  IDL['instructions']['7']
 >['initializeVirtualPoolWithToken2022']
 export type MigrateMeteoraDammAccounts = Accounts<
-  IDL['instructions']['7']
->['migrateMeteoraDamm']
-export type MigrateMeteoraDammLockLpTokenForCreatorAccounts = Accounts<
   IDL['instructions']['8']
+>['migrateMeteoraDamm']
+export type MigrateMeteoraDammCreatorClaimLpTokenAccounts = Accounts<
+  IDL['instructions']['9']
+>['migrateMeteoraDammCreatorClaimLpToken']
+export type MigrateMeteoraDammLockLpTokenForCreatorAccounts = Accounts<
+  IDL['instructions']['10']
 >['migrateMeteoraDammLockLpTokenForCreator']
 export type MigrateMeteoraDammLockLpTokenForPartnerAccounts = Accounts<
-  IDL['instructions']['9']
->['migrateMeteoraDammLockLpTokenForPartner']
-export type MigrationMeteoraDammCreateMetadataAccounts = Accounts<
-  IDL['instructions']['10']
->['migrationMeteoraDammCreateMetadata']
-export type PartnerWithdrawSurplusAccounts = Accounts<
   IDL['instructions']['11']
->['partnerWithdrawSurplus']
-export type ProtocolWithdrawSurplusAccounts = Accounts<
+>['migrateMeteoraDammLockLpTokenForPartner']
+export type MigrateMeteoraDammPartnerClaimLpTokenAccounts = Accounts<
   IDL['instructions']['12']
->['protocolWithdrawSurplus']
-export type SwapAccounts = Accounts<IDL['instructions']['13']>['swap']
+>['migrateMeteoraDammPartnerClaimLpToken']
+export type MigrationDammV2Accounts = Accounts<
+  IDL['instructions']['13']
+>['migrationDammV2']
+export type MigrationDammV2CreateMetadataAccounts = Accounts<
+  IDL['instructions']['14']
+>['migrationDammV2CreateMetadata']
+
+// {
+//   config: Address;
+//   poolAuthority: Address;
+//   baseMint: Address;
+//   quoteMint: Address;
+//   pool: Address;
+//   baseVault: Address;
+//   quoteVault: Address;
+//   payer: Address | undefined;
+//   tokenQuoteProgram: Address;
+//   eventAuthority: Address;
+//   program: Address;
+//   inputTokenAccount: Address;
+//   outputTokenAccount: Address;
+//   tokenBaseProgram: Address;
+//   referralTokenAccount: Address | null;
+// }
+export type SwapAccounts = Accounts<IDL['instructions']['19']>['swap']
 
 // types
 export type InitializePoolParameters = IdlTypes<IDL>['initializePoolParameters']

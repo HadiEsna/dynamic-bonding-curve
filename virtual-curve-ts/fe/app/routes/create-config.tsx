@@ -58,10 +58,10 @@ const configSchema = z.object({
 
   // Pool fees - Dynamic fee
   dynamicFee: z.object({
-    binStep: z.number().int().min(1),
+    binStep: z.number().int().min(0),
     binStepU128: z.number().int().min(0),
-    filterPeriod: z.number().int().min(1),
-    decayPeriod: z.number().int().min(1),
+    filterPeriod: z.number().int().min(0),
+    decayPeriod: z.number().int().min(0),
     reductionFactor: z.number().int().min(0),
     maxVolatilityAccumulator: z.number().int().min(0),
     variableFeeControl: z.number().int().min(0),
@@ -75,7 +75,7 @@ const configSchema = z.object({
   tokenType: z.number().int().min(0).max(1), // 0: SplToken, 1: Token2022
   creatorPostMigrationFeePercentage: z.number().int().min(0).max(100),
   migrationQuoteThreshold: z.number().int().min(0),
-  sqrtStartPrice: z.number().int().min(1),
+  sqrtStartPrice: z.string(),
 
   // Liquidity distribution parameters
   liquidityDistribution: z
@@ -143,6 +143,7 @@ export default function ConfigPage() {
       owner: publicKey?.toBase58() || '',
     } as ConfigFormValues,
     onSubmit: async ({ value }) => {
+      console.log({ value })
       if (!virtualProgram.sdk) {
         throw new Error('Virtual program not initialized')
       }
@@ -198,14 +199,16 @@ export default function ConfigPage() {
         2
       )
       console.log(params)
-      const ix = await sdk.createConfig({
-        config: tempKeypair.publicKey,
-        feeClaimer: value.feeClaimer,
-        owner: value.owner,
-        quoteMint: value.quoteMint,
-        payer: publicKey,
-        systemProgram: SystemProgram.programId,
-        configParameters: {
+      const ix = await sdk.createConfig(
+        {
+          config: tempKeypair.publicKey,
+          feeClaimer: value.feeClaimer,
+          owner: value.owner,
+          quoteMint: value.quoteMint,
+          payer: publicKey,
+          systemProgram: SystemProgram.programId,
+        },
+        {
           padding: [],
           activationType: value.activationType,
           collectFeeMode: value.collectFeeMode,
@@ -220,8 +223,6 @@ export default function ConfigPage() {
             },
             dynamicFee: null,
           },
-          creatorPostMigrationFeePercentage:
-            value.creatorPostMigrationFeePercentage,
           curve: value.liquidityDistribution.map(
             ({ sqrtPrice, liquidity }) => ({
               sqrtPrice: new BN(sqrtPrice),
@@ -232,8 +233,12 @@ export default function ConfigPage() {
           sqrtStartPrice: new BN(value.sqrtStartPrice),
           tokenDecimal: value.tokenDecimal,
           tokenType: value.tokenType,
-        },
-      })
+          creatorLockedLpPercentage: 50,
+          creatorLpPercentage: 0,
+          partnerLockedLpPercentage: 50,
+          partnerLpPercentage: 0,
+        }
+      )
 
       const blockhash = await connection.getLatestBlockhash()
       let transaction = new Transaction({
@@ -706,9 +711,7 @@ export default function ConfigPage() {
                         type="number"
                         name={field.name}
                         value={field.state.value}
-                        onChange={(e) =>
-                          field.handleChange(parseInt(e.target.value, 10))
-                        }
+                        onChange={(e) => field.handleChange(e.target.value)}
                         className="w-full bg-white/10 p-2 rounded-lg"
                       />
                     ),
