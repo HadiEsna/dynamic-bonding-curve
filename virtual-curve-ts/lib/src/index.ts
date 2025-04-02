@@ -37,6 +37,10 @@ import {
   createAssociatedTokenAccountIdempotentInstruction,
   findAssociatedTokenAddress,
 } from './ata'
+import {
+  createCloseAccountInstruction,
+  createSyncNativeInstruction,
+} from '@solana/spl-token'
 
 // Define a type for accounts that might have optional fields
 type AccountsWithOptionalFields<T, K extends keyof T> = {
@@ -342,24 +346,30 @@ export class VirtualCurveSDK {
     )
 
     const ixs = []
+    const cleanupIxs = []
     if (isSOL) {
       ixs.push(
+        createAssociatedTokenAccountIdempotentInstruction(
+          params.user,
+          inputTokenAccount,
+          params.user,
+          new PublicKey(params.quoteMint)
+        ),
         SystemProgram.transfer({
           fromPubkey: params.user,
           toPubkey: inputTokenAccount,
           lamports: swapParams.amountIn.toNumber(),
         }),
-        new TransactionInstruction({
-          keys: [
-            {
-              pubkey: inputTokenAccount,
-              isSigner: false,
-              isWritable: true,
-            },
-          ],
-          data: Buffer.from(new Uint8Array([17])),
-          programId: TOKEN_PROGRAM_ID,
-        })
+        createSyncNativeInstruction(inputTokenAccount)
+      )
+      cleanupIxs.push(
+        createCloseAccountInstruction(
+          inputTokenAccount,
+          params.user,
+          params.user,
+          [],
+          TOKEN_PROGRAM_ID
+        )
       )
     }
     ixs.push(
@@ -381,6 +391,7 @@ export class VirtualCurveSDK {
       })
       .instruction()
     ixs.push(ix)
+    ixs.push(...cleanupIxs)
     return ixs
   }
 

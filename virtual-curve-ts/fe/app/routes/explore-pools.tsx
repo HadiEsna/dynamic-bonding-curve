@@ -249,12 +249,6 @@ export default function ExplorePools() {
                       >
                         Trade
                       </Link>
-                      <Link
-                        to={`/pool/${pool.publicKey.toString()}/details`}
-                        className="flex-1 bg-transparent border border-white/20 px-3 py-2 rounded-lg font-medium hover:bg-white/10 transition text-center text-sm"
-                      >
-                        Details
-                      </Link>
                     </div>
                   </div>
                 </div>

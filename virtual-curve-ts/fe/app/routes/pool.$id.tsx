@@ -161,8 +161,6 @@ const SwapForm: React.FC<SwapFormProps> = memo(
       }
 
       setIsSwapping(true)
-      // Use sonner toast methods
-      const toastId = toast.loading('Processing swap...')
 
       try {
         const amountInBN = new BN(inputAmount.trim())
