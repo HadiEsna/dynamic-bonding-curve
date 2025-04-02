@@ -88,45 +88,40 @@ export function getDeltaAmountQuoteUnchecked(
   roundUp: boolean
 ): BN {
   const deltaPrice = upperSqrtPrice.sub(lowerSqrtPrice)
-  const result = liquidity.mul(deltaPrice)
 
-  // Match Rust: shift by 128 bits (2*RESOLUTION)
-  if (roundUp) {
-    return result.add(new BN(1).shln(128).sub(new BN(1))).shrn(128)
-  } else {
-    return result.shrn(128)
-  }
-}
+  // Match Rust's RESOLUTION constant
+  const RESOLUTION = 64
+  const shift = RESOLUTION * 2
+  const denominator = new BN(1).shln(shift)
 
-// √P' = √P * L / (L + Δx * √P)
-export function getNextSqrtPriceFromAmountBase(
-  sqrtPrice: BN,
-  liquidity: BN,
-  amountIn: BN,
-  roundUp: boolean
-): BN {
-  if (liquidity.isZero()) throw new Error('MathOverflow')
-  if (amountIn.isZero()) return sqrtPrice
-
-  // In Rust they use:
-  // liquidity * sqrtPrice / (liquidity + amount * sqrtPrice)
-
-  // First multiply amount * sqrtPrice (preserving Q64.64)
-  const product = amountIn.mul(sqrtPrice)
-
-  // Add to liquidity
-  const denominator = liquidity.add(product.div(Q64))
-
-  // Calculate numerator
-  const numerator = liquidity.mul(sqrtPrice)
-
-  // Now perform the final division with correct scaling
-  const result = numerator.div(denominator)
+  // Use mulDivU256 for precise calculation
+  const result = mulDiv(liquidity, deltaPrice, denominator, roundUp)
 
   return result
 }
 
-// √P' = √P + Δy / L
+export function getNextSqrtPriceFromInput(
+  sqrtPrice: BN,
+  liquidity: BN,
+  amountIn: BN,
+  baseForQuote: boolean
+): BN {
+  if (liquidity.isZero()) throw new Error('MathOverflow')
+  if (amountIn.isZero()) return sqrtPrice
+
+  if (baseForQuote) {
+    const product = amountIn.mul(sqrtPrice)
+
+    const denominator = liquidity.add(product)
+
+    const result = mulDiv(liquidity, sqrtPrice, denominator, true)
+    return result
+  } else {
+    const quotient = amountIn.shln(128).div(liquidity)
+    return sqrtPrice.add(quotient)
+  }
+}
+
 export function getNextSqrtPriceFromAmountQuote(
   sqrtPrice: BN,
   liquidity: BN,
@@ -141,16 +136,27 @@ export function getNextSqrtPriceFromAmountQuote(
   return sqrtPrice.add(quotient)
 }
 
-// Helper function for precise multiplication/division with rounding control
-function mulDiv(a: BN, b: BN, c: BN, roundUp: boolean): BN {
-  if (c.isZero()) throw new Error('DivisionByZero')
-
-  // Calculate product
-  const product = a.mul(b)
-
-  // Apply rounding and divide
-  if (roundUp) {
-    return product.add(c.sub(new BN(1))).div(c)
+/**
+ * Matches Rust's mul_div_u256 function
+ * Performs multiplication and division with precise rounding
+ * Returns null if result overflows or denominator is zero
+ */
+export function mulDiv(x: BN, y: BN, denominator: BN, roundUp: boolean): BN {
+  if (denominator.isZero()) {
+    throw new Error('DivisionByZero')
   }
-  return product.div(c)
+
+  // Use BN's built-in multiplication which handles large numbers
+  const prod = x.mul(y)
+
+  let result: BN
+  if (roundUp) {
+    // Match Rust's div_ceil behavior
+    result = prod.add(denominator.sub(new BN(1))).div(denominator)
+  } else {
+    // Match Rust's div_rem behavior
+    result = prod.div(denominator)
+  }
+
+  return result
 }

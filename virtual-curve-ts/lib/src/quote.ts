@@ -11,8 +11,8 @@ import {
   getDeltaAmountBaseUnsigned,
   getDeltaAmountQuoteUnchecked,
   getDeltaAmountQuoteUnsigned,
-  getNextSqrtPriceFromAmountBase,
-  getNextSqrtPriceFromAmountQuote,
+  getNextSqrtPriceFromInput,
+  mulDiv,
 } from './math'
 import { getFeeInPeriod } from './fee_math'
 
@@ -147,7 +147,7 @@ function getSwapAmountFromBaseToQuote(
   let currentSqrtPrice = pool.sqrtPrice
   let amountLeft = amountIn
 
-  // Iterate through curve points from highest to lowest
+  // Iterate through curve points from highest to lowest, matching Rust's range
   for (let i = MAX_CURVE_POINT - 2; i >= 0; i--) {
     if (config.curve[i].sqrtPrice.lt(currentSqrtPrice)) {
       const maxAmountIn = getDeltaAmountBaseUnsigned(
@@ -156,9 +156,8 @@ function getSwapAmountFromBaseToQuote(
         config.curve[i + 1].liquidity,
         true // roundUp
       )
-
       if (amountLeft.lt(maxAmountIn)) {
-        const nextSqrtPrice = getNextSqrtPriceFromAmountBase(
+        const nextSqrtPrice = getNextSqrtPriceFromInput(
           currentSqrtPrice,
           config.curve[i + 1].liquidity,
           amountLeft,
@@ -194,7 +193,7 @@ function getSwapAmountFromBaseToQuote(
 
   // Handle remaining amount with first curve point
   if (!amountLeft.isZero()) {
-    const nextSqrtPrice = getNextSqrtPriceFromAmountBase(
+    const nextSqrtPrice = getNextSqrtPriceFromInput(
       currentSqrtPrice,
       config.curve[0].liquidity,
       amountLeft,
@@ -238,10 +237,11 @@ function getSwapAmountFromQuoteToBase(
       )
 
       if (amountLeft.lt(maxAmountIn)) {
-        const nextSqrtPrice = getNextSqrtPriceFromAmountQuote(
+        const nextSqrtPrice = getNextSqrtPriceFromInput(
           currentSqrtPrice,
           config.curve[i].liquidity,
-          amountLeft
+          amountLeft,
+          false
         )
 
         const outputAmount = getDeltaAmountBaseUnsigned(
@@ -281,6 +281,7 @@ function getSwapAmountFromQuoteToBase(
   }
 }
 
+// same as get_fee_on_amount in rust
 function calculateFees(
   poolFees: VirtualPool['poolFees'],
   amount: BN,
@@ -299,12 +300,12 @@ function calculateFees(
     : tradeFeeNumerator
 
   // Calculate total trading fee based on the *original* amount
-  const totalTradingFee = tradeFeeNumeratorCapped.gt(new BN(0))
-    ? BN.max(
-        amount.mul(tradeFeeNumeratorCapped).div(FEE_DENOMINATOR),
-        new BN(1)
-      )
-    : new BN(0)
+  const totalTradingFee = mulDiv(
+    amount,
+    tradeFeeNumeratorCapped,
+    FEE_DENOMINATOR,
+    true
+  )
 
   // Calculate protocol fee from the total trading fee
   const protocolFee = totalTradingFee

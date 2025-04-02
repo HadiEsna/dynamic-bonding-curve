@@ -2,7 +2,7 @@ import { test, expect } from 'bun:test'
 import {
   getDeltaAmountBaseUnsigned,
   getDeltaAmountQuoteUnsigned,
-  getNextSqrtPriceFromAmountBase,
+  getNextSqrtPriceFromInput,
   getNextSqrtPriceFromAmountQuote,
 } from '../src/math'
 import { BN } from 'bn.js'
@@ -37,7 +37,7 @@ test('Price update from base input', () => {
   const liquidity = new BN('100000')
   const amountIn = new BN('50000') // half of liquidity
 
-  const newPrice = getNextSqrtPriceFromAmountBase(
+  const newPrice = getNextSqrtPriceFromInput(
     sqrtPrice,
     liquidity,
     amountIn,

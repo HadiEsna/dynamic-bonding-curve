@@ -199,8 +199,8 @@ test('quote exact in test with fees', () => {
     nextSqrtPrice: result.nextSqrtPrice.toString(),
   })
 
-  expect(result.amountOut.toString()).toMatchInlineSnapshot(`"4909297216"`)
-  expect(result.fee.trading.toString()).toMatchInlineSnapshot(`"12304003"`)
+  expect(result.amountOut.toString()).toMatchInlineSnapshot(`"4909297215"`)
+  expect(result.fee.trading.toString()).toMatchInlineSnapshot(`"12304004"`)
   expect(result.nextSqrtPrice.toString()).toMatchInlineSnapshot(
     `"8315081533034529335"`
   )
@@ -234,4 +234,26 @@ test('quote exact in test with fees', () => {
   expect(smallResult.nextSqrtPrice.toString()).toMatchInlineSnapshot(
     `"8315081523828484030"`
   )
+
+  // Test quote for base to quote swap
+  const amountInBase = new BN('1000000000') // 1k USDC
+  const resultBaseToQuote = quoteExactIn(
+    virtualPool,
+    config,
+    true, // base to quote
+    amountInBase,
+    false, // no referral
+    new BN(0) // current point
+  )
+
+  console.log('Quote Result:', {
+    amountOut: resultBaseToQuote.amountOut.toString(),
+    tradingFee: resultBaseToQuote.fee.trading.toString(),
+    protocolFee: resultBaseToQuote.fee.protocol.toString(),
+    nextSqrtPrice: resultBaseToQuote.nextSqrtPrice.toString(),
+  })
+  expect(resultBaseToQuote.amountOut.toString()).toMatchInlineSnapshot(`"202677940"`)
+  expect(resultBaseToQuote.fee.trading.toString()).toMatchInlineSnapshot(`"507965"`)
+  expect(resultBaseToQuote.fee.protocol.toString()).toMatchInlineSnapshot(`"0"`)
+  expect(resultBaseToQuote.nextSqrtPrice.toString()).toMatchInlineSnapshot(`"8315081521957945371"`)
 })

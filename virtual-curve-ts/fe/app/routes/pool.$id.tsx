@@ -6,11 +6,16 @@ import React, { useState, useCallback, useRef, useEffect, memo } from 'react'
 import { useVirtualProgram } from '~/contexts/VirtualProgramContext'
 import BN from 'bn.js'
 import { type VirtualPool, type PoolConfig } from '../../../lib/src/types'
-import { TOKEN_PROGRAM_ID, type VirtualCurveSDK } from '../../../lib/src/index'
+import {
+  SOL_MINT,
+  TOKEN_PROGRAM_ID,
+  type VirtualCurveSDK,
+} from '../../../lib/src/index'
 import { toast } from 'sonner'
 import { useWallet } from '@jup-ag/wallet-adapter'
 import { useSendTransaction } from '~/hooks/useSendTransaction'
-import { Connection, Transaction } from '@solana/web3.js'
+import { Connection, Transaction, PublicKey } from '@solana/web3.js'
+import { getAssociatedTokenAddressSync } from '@solana/spl-token'
 
 // Props for the new SwapForm component
 interface SwapFormProps {
@@ -26,6 +31,96 @@ const getMintDisplay = (mint: any): string => {
   const str = mint.toString()
   return `${str.substring(0, 4)}...`
 }
+
+// Add TokenBalance component
+const TokenBalance: React.FC<{
+  connection: Connection | null
+  mint: PublicKey | null
+  wallet: PublicKey | null
+}> = memo(({ connection, mint, wallet }) => {
+  const [balance, setBalance] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  const fetchBalance = useCallback(async () => {
+    if (!connection || !mint || !wallet) {
+      setBalance(null)
+      return
+    }
+
+    try {
+      if (mint.equals(SOL_MINT)) {
+        const account = await connection.getBalance(wallet)
+        setBalance(account.toString())
+      } else {
+        const ata = getAssociatedTokenAddressSync(mint, wallet)
+        const account = await connection.getTokenAccountBalance(ata)
+        setBalance(account.value.amount)
+      }
+    } catch (err) {
+      console.error('Error fetching token balance:', err)
+      setError('Failed to fetch balance')
+      setBalance(null)
+    }
+  }, [connection, mint, wallet])
+
+  useEffect(() => {
+    fetchBalance()
+  }, [fetchBalance])
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    await fetchBalance()
+    setIsRefreshing(false)
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-between">
+        <span className="text-red-400 text-xs">{error}</span>
+        <button
+          onClick={handleRefresh}
+          className="text-xs text-gray-400 hover:text-white transition-colors"
+          disabled={isRefreshing}
+        >
+          {isRefreshing ? 'Refreshing...' : 'Refresh'}
+        </button>
+      </div>
+    )
+  }
+
+  if (balance === null) {
+    return (
+      <div className="flex items-center justify-between">
+        <span className="text-gray-400 text-xs">Loading...</span>
+        <button
+          onClick={handleRefresh}
+          className="text-xs text-gray-400 hover:text-white transition-colors"
+          disabled={isRefreshing}
+        >
+          {isRefreshing ? 'Refreshing...' : 'Refresh'}
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-gray-400 text-xs">
+        Balance: {new Intl.NumberFormat().format(Number(balance))}
+      </span>
+      <button
+        onClick={handleRefresh}
+        className="text-xs text-gray-400 hover:text-white transition-colors"
+        disabled={isRefreshing}
+      >
+        {isRefreshing ? 'Refreshing...' : 'Refresh'}
+      </button>
+    </div>
+  )
+})
+
+TokenBalance.displayName = 'TokenBalance'
 
 // Extracted and Memoized SwapForm Component
 const SwapForm: React.FC<SwapFormProps> = memo(
@@ -173,8 +268,6 @@ const SwapForm: React.FC<SwapFormProps> = memo(
 
         const isBaseToQuote = swapDirection === 'baseToQuote'
         const swapBaseForQuoteFlag = isBaseToQuote
-        const currentPointBN = new BN(0) // Assuming 0, confirm if SDK needs real value
-
         // *** ATTEMPTING swapExactIn CALL - SIGNATURE MAY DIFFER ***
         // This assumes swapExactIn exists, takes these args, and returns a string signature.
         // This might need significant changes based on the actual SDK.
@@ -191,6 +284,7 @@ const SwapForm: React.FC<SwapFormProps> = memo(
             referralTokenAccount: null,
             tokenBaseProgram: TOKEN_PROGRAM_ID,
             tokenQuoteProgram: TOKEN_PROGRAM_ID,
+            swapBaseForQuote: swapBaseForQuoteFlag,
           },
           {
             amountIn: amountInBN,
@@ -211,7 +305,6 @@ const SwapForm: React.FC<SwapFormProps> = memo(
           },
           onError: (err) => {
             console.error('Failed to swap:', err)
-            // setError(err.message)
           },
         })
         await resp?.unwrap()
@@ -225,7 +318,6 @@ const SwapForm: React.FC<SwapFormProps> = memo(
       } catch (err: any) {
         console.error('Swap failed:', err)
         const errorMessage = err.message || 'Swap transaction failed.'
-        toast.error(`Swap failed: ${errorMessage}`, { id: toastId })
         setCalculationError(errorMessage) // Optionally display error in form area too
       } finally {
         setIsSwapping(false)
@@ -258,58 +350,114 @@ const SwapForm: React.FC<SwapFormProps> = memo(
     const outputMint =
       swapDirection === 'quoteToBase' ? pool?.baseMint : config?.quoteMint
 
+    const handleSwapDirection = useCallback(() => {
+      setSwapDirection((prev) =>
+        prev === 'quoteToBase' ? 'baseToQuote' : 'quoteToBase'
+      )
+      // Reset amounts when direction changes
+      setInputAmount('')
+      setOutputAmount(null)
+      setCalculationError(null)
+    }, [])
+
     return (
       <div className="mt-6 pt-4 border-t border-white/10">
-        <h4 className="text-lg font-semibold mb-3 text-white">
-          Swap (Raw Amounts)
-        </h4>
-        {/* TODO: Add Swap Direction Toggle Button Here */}
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-lg font-semibold text-white">
+            Swap (Raw Amounts)
+          </h4>
+          <button
+            onClick={handleSwapDirection}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+            disabled={isSwapping}
+          >
+            <span className="text-gray-300">
+              {swapDirection === 'quoteToBase' ? (
+                <>
+                  {getMintDisplay(config?.quoteMint)} →{' '}
+                  {getMintDisplay(pool?.baseMint)}
+                </>
+              ) : (
+                <>
+                  {getMintDisplay(pool?.baseMint)} →{' '}
+                  {getMintDisplay(config?.quoteMint)}
+                </>
+              )}
+            </span>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4 text-gray-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+              />
+            </svg>
+          </button>
+        </div>
         <div className="grid grid-cols-1 gap-4">
           <div>
             <label
               htmlFor="inputAmount"
               className="block text-sm font-medium text-gray-300 mb-1"
             >
-              {/* Safely display mints */}
               You Pay ({getMintDisplay(inputMint)} Token - Raw Amount)
             </label>
-            <input
-              type="text" // Use text for BN compatibility, patterns handle numeric input
-              inputMode="numeric" // Hint for mobile keyboards
-              pattern="[0-9]*" // Allow only digits
-              id="inputAmount"
-              name="inputAmount"
-              value={inputAmount}
-              onChange={(e) => debouncedHandleAmountChange(e.target.value)}
-              placeholder="0"
-              className="block w-full p-2.5 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:ring-pink-500 focus:border-pink-500 disabled:opacity-70"
-              disabled={isSwapping} // Disable input while swapping
-            />
+            <div className="flex flex-col gap-1">
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                id="inputAmount"
+                name="inputAmount"
+                value={inputAmount}
+                onChange={(e) => debouncedHandleAmountChange(e.target.value)}
+                placeholder="0"
+                className="block w-full p-2.5 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:ring-pink-500 focus:border-pink-500 disabled:opacity-70"
+                disabled={isSwapping}
+              />
+              <TokenBalance
+                connection={connection}
+                mint={inputMint || null}
+                wallet={wallet.publicKey}
+              />
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">
-              {/* Safely display mints */}
               You Receive ({getMintDisplay(outputMint)} Token - Raw Amount)
               (Est.)
             </label>
-            <div className="block w-full p-2.5 bg-white/5 border border-white/10 rounded-lg text-white min-h-[44px] flex items-center">
-              {isCalculating ? (
-                <span className="text-gray-400 text-sm">Calculating...</span>
-              ) : calculationError ? (
-                <span className="text-red-400 text-xs break-all">
-                  Error: {calculationError}
-                </span>
-              ) : outputAmount !== null ? (
-                <span className="break-all">{outputAmount}</span>
-              ) : (
-                <span className="text-gray-500">-</span> // Placeholder when no amount/error/loading
-              )}
+            <div className="flex flex-col gap-1">
+              <div className="block w-full p-2.5 bg-white/5 border border-white/10 rounded-lg text-white min-h-[44px] flex items-center">
+                {isCalculating ? (
+                  <span className="text-gray-400 text-sm">Calculating...</span>
+                ) : calculationError ? (
+                  <span className="text-red-400 text-xs break-all">
+                    Error: {calculationError}
+                  </span>
+                ) : outputAmount !== null ? (
+                  <span className="break-all">{outputAmount}</span>
+                ) : (
+                  <span className="text-gray-500">-</span>
+                )}
+              </div>
+              <TokenBalance
+                connection={connection}
+                mint={outputMint || null}
+                wallet={wallet.publicKey}
+              />
             </div>
           </div>
           <button
             onClick={handleSwap}
             className="w-full bg-gradient-to-r from-pink-500 to-purple-500 px-4 py-2.5 rounded-lg font-medium hover:opacity-90 transition text-center text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={!canSwap} // Use derived boolean for clarity
+            disabled={!canSwap}
           >
             {isSwapping ? 'Swapping...' : 'Swap'}
           </button>

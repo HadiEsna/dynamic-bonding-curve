@@ -317,44 +317,43 @@ export class VirtualCurveSDK {
       | 'inputTokenAccount'
       | 'outputTokenAccount'
       | 'poolAuthority'
-    > & { user: PublicKey },
+    > & { user: PublicKey; swapBaseForQuote: boolean },
     swapParams: SwapParameters
   ) {
-    const [poolAuthority] = PublicKey.findProgramAddressSync(
-      [Buffer.from('pool_authority')],
-      this.program.programId
-    )
+    const inputMint = params.swapBaseForQuote
+      ? new PublicKey(params.baseMint)
+      : new PublicKey(params.quoteMint)
+    const outputMint = params.swapBaseForQuote
+      ? new PublicKey(params.quoteMint)
+      : new PublicKey(params.baseMint)
 
-    const isSOL = params.quoteMint.toString() === SOL_MINT.toString()
-    // const inputTokenAccount = isSOL
-    //   ? params.user
-    //   : findAssociatedTokenAddress(
-    //       params.user,
-    //       new PublicKey(params.quoteMint),
-    //       new PublicKey(params.tokenQuoteProgram)
-    //     )
+    const isSOLInput = inputMint.toString() === SOL_MINT.toString()
+    const isSOLOutput = outputMint.toString() === SOL_MINT.toString()
+
     const inputTokenAccount = findAssociatedTokenAddress(
       params.user,
-      new PublicKey(params.quoteMint),
+      inputMint,
       new PublicKey(params.tokenQuoteProgram)
     )
 
     const outputTokenAccount = findAssociatedTokenAddress(
       params.user,
-      new PublicKey(params.baseMint),
+      outputMint,
       new PublicKey(params.tokenBaseProgram)
     )
 
     const ixs = []
     const cleanupIxs = []
-    if (isSOL) {
+    if (isSOLInput) {
       ixs.push(
         createAssociatedTokenAccountIdempotentInstruction(
           params.user,
           inputTokenAccount,
           params.user,
-          new PublicKey(params.quoteMint)
-        ),
+          inputMint
+        )
+      )
+      ixs.push(
         SystemProgram.transfer({
           fromPubkey: params.user,
           toPubkey: inputTokenAccount,
@@ -372,14 +371,27 @@ export class VirtualCurveSDK {
         )
       )
     }
+
     ixs.push(
       createAssociatedTokenAccountIdempotentInstruction(
         params.user,
         outputTokenAccount,
         params.user,
-        new PublicKey(params.baseMint)
+        outputMint
       )
     )
+
+    if (isSOLOutput) {
+      cleanupIxs.push(
+        createCloseAccountInstruction(
+          outputTokenAccount,
+          params.user,
+          params.user,
+          [],
+          TOKEN_PROGRAM_ID
+        )
+      )
+    }
 
     const ix = await this.program.methods
       .swap(swapParams)
