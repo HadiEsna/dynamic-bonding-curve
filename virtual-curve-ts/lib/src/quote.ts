@@ -299,9 +299,12 @@ function calculateFees(
     : tradeFeeNumerator
 
   // Calculate total trading fee based on the *original* amount
-  const totalTradingFee = amount
-    .mul(tradeFeeNumeratorCapped)
-    .div(FEE_DENOMINATOR)
+  const totalTradingFee = tradeFeeNumeratorCapped.gt(new BN(0))
+    ? BN.max(
+        amount.mul(tradeFeeNumeratorCapped).div(FEE_DENOMINATOR),
+        new BN(1)
+      )
+    : new BN(0)
 
   // Calculate protocol fee from the total trading fee
   const protocolFee = totalTradingFee

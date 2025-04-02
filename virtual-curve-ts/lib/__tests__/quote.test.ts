@@ -204,4 +204,34 @@ test('quote exact in test with fees', () => {
   expect(result.nextSqrtPrice.toString()).toMatchInlineSnapshot(
     `"8315081533034529335"`
   )
+
+  // Test quote for quote to base swap
+  const smallAmountIn = new BN('1') // 1
+  const smallResult = quoteExactIn(
+    virtualPool,
+    config,
+    false, // quote to base
+    smallAmountIn,
+    false, // no referral
+    new BN(0) // current point
+  )
+
+  // Verify results
+  //   expect(result.amountOut.gt(new BN(0))).toBe(true)
+  //   expect(result.fee.trading.gte(new BN(0))).toBe(true)
+  //   expect(result.fee.protocol.gte(new BN(0))).toBe(true)
+
+  // Log results similar to Rust test
+  console.log('Quote Result:', {
+    amountOut: smallResult.amountOut.toString(),
+    tradingFee: smallResult.fee.trading.toString(),
+    protocolFee: smallResult.fee.protocol.toString(),
+    nextSqrtPrice: smallResult.nextSqrtPrice.toString(),
+  })
+
+  expect(smallResult.amountOut.toString()).toMatchInlineSnapshot(`"3"`)
+  expect(smallResult.fee.trading.toString()).toMatchInlineSnapshot(`"1"`)
+  expect(smallResult.nextSqrtPrice.toString()).toMatchInlineSnapshot(
+    `"8315081523828484030"`
+  )
 })
