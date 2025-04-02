@@ -40,11 +40,12 @@ export const DEFAULT_POOL_CONFIG: PoolConfig = {
   migrationOption: 0,
   tokenDecimal: 0,
   tokenType: 0,
-  padding0: [],
+  padding1: [],
   swapBaseAmount: new BN(0),
   migrationBaseThreshold: new BN(0),
-  padding: [],
   sqrtStartPrice: new BN(0),
+  quoteTokenFlag: 0,
+  version: 0,
 }
 
 export const DEFAULT_VIRTUAL_POOL: VirtualPool = {

@@ -1,4 +1,4 @@
-import { BN } from 'bn.js'
+import type BN from 'bn.js'
 import type {
   Program,
   IdlTypes,
@@ -324,3 +324,10 @@ export type DynamicFee = VirtualPool['poolFees']['dynamicFee']
 //   reductionFactor: BN
 // }
 export type BaseFee = VirtualPool['poolFees']['baseFee']
+
+export interface FeeOnAmountResult {
+  amount: BN // Amount remaining after taking trading fee
+  protocolFee: BN // Final protocol fee (after referral deduction)
+  tradingFee: BN // Portion of trading fee NOT going to protocol
+  referralFee: BN // Referral fee amount
+}

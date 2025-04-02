@@ -5,6 +5,7 @@ import {
   type PoolConfig,
   TradeDirection,
   type FeeMode,
+  type FeeOnAmountResult,
 } from './types'
 import {
   getDeltaAmountBaseUnsigned,
@@ -17,9 +18,8 @@ import { getFeeInPeriod } from './fee_math'
 
 // Constants to match Rust
 const MAX_CURVE_POINT = 20
-const FEE_DENOMINATOR = new BN(10000)
-const MAX_FEE_NUMERATOR = new BN(10000)
-const BASIS_POINT_MAX = new BN(10000)
+const FEE_DENOMINATOR = new BN(1_000_000_000)
+const MAX_FEE_NUMERATOR = new BN(500_000_000)
 
 enum CollectFeeMode {
   QuoteToken = 0,
@@ -82,23 +82,22 @@ function getSwapResult(
   let actualProtocolFee = new BN(0)
   let actualTradingFee = new BN(0)
   let actualReferralFee = new BN(0)
+  let actualAmountIn = amountIn // Initialize with amountIn
 
   // Calculate fees if they're applied on input
-  const actualAmountIn = feeMode.feesOnInput
-    ? calculateFees(
-        pool,
-        amountIn,
-        feeMode.hasReferral,
-        currentPoint,
-        pool.activationPoint,
-        (fees) => {
-          actualProtocolFee = fees.protocolFee
-          actualTradingFee = fees.tradingFee
-          actualReferralFee = fees.referralFee
-          return fees.amount
-        }
-      )
-    : amountIn
+  if (feeMode.feesOnInput) {
+    const feeResult = calculateFees(
+      pool.poolFees,
+      amountIn,
+      feeMode.hasReferral,
+      currentPoint,
+      pool.activationPoint
+    )
+    actualAmountIn = feeResult.amount
+    actualProtocolFee = feeResult.protocolFee
+    actualTradingFee = feeResult.tradingFee
+    actualReferralFee = feeResult.referralFee
+  }
 
   // Calculate swap amounts
   const { outputAmount, nextSqrtPrice } =
@@ -106,22 +105,22 @@ function getSwapResult(
       ? getSwapAmountFromBaseToQuote(pool, config, actualAmountIn)
       : getSwapAmountFromQuoteToBase(pool, config, actualAmountIn)
 
+  let actualAmountOut = outputAmount // Initialize with calculated output
+
   // Calculate fees if they're applied on output
-  const actualAmountOut = feeMode.feesOnInput
-    ? outputAmount
-    : calculateFees(
-        pool,
-        outputAmount,
-        feeMode.hasReferral,
-        currentPoint,
-        pool.activationPoint,
-        (fees) => {
-          actualProtocolFee = fees.protocolFee
-          actualTradingFee = fees.tradingFee
-          actualReferralFee = fees.referralFee
-          return fees.amount
-        }
-      )
+  if (!feeMode.feesOnInput) {
+    const feeResult = calculateFees(
+      pool.poolFees,
+      outputAmount, // Calculate fees on the gross output amount
+      feeMode.hasReferral,
+      currentPoint,
+      pool.activationPoint
+    )
+    actualAmountOut = feeResult.amount // Net amount after output fees
+    actualProtocolFee = feeResult.protocolFee
+    actualTradingFee = feeResult.tradingFee
+    actualReferralFee = feeResult.referralFee
+  }
 
   return {
     amountOut: actualAmountOut,
@@ -283,21 +282,15 @@ function getSwapAmountFromQuoteToBase(
 }
 
 function calculateFees(
-  pool: VirtualPool,
+  poolFees: VirtualPool['poolFees'],
   amount: BN,
   hasReferral: boolean,
   currentPoint: BN,
-  activationPoint: BN,
-  callback: (fees: {
-    amount: BN
-    protocolFee: BN
-    tradingFee: BN
-    referralFee: BN
-  }) => BN
-): BN {
+  activationPoint: BN
+): FeeOnAmountResult {
   // Get total trading fee numerator
   const tradeFeeNumerator = getTotalTradingFee(
-    pool.poolFees,
+    poolFees,
     currentPoint,
     activationPoint
   )
@@ -305,34 +298,36 @@ function calculateFees(
     ? MAX_FEE_NUMERATOR
     : tradeFeeNumerator
 
-  // Calculate trading fee
-  const tradingFee = amount.mul(tradeFeeNumeratorCapped).div(FEE_DENOMINATOR)
+  // Calculate total trading fee based on the *original* amount
+  const totalTradingFee = amount
+    .mul(tradeFeeNumeratorCapped)
+    .div(FEE_DENOMINATOR)
 
-  // Update amount after trading fee
-  let remainingAmount = amount.sub(tradingFee)
-
-  // Calculate protocol fee
-  const protocolFee = tradingFee
-    .mul(new BN(pool.poolFees.protocolFeePercent))
+  // Calculate protocol fee from the total trading fee
+  const protocolFee = totalTradingFee
+    .mul(new BN(poolFees.protocolFeePercent))
     .div(new BN(100))
 
-  // Update trading fee after protocol fee
-  let remainingTradingFee = tradingFee.sub(protocolFee)
-
-  // Calculate referral fee
+  // Calculate referral fee from the protocol fee
   const referralFee = hasReferral
-    ? protocolFee.mul(new BN(pool.poolFees.referralFeePercent)).div(new BN(100))
+    ? protocolFee.mul(new BN(poolFees.referralFeePercent)).div(new BN(100))
     : new BN(0)
 
-  // Update protocol fee after referral fee
+  // Determine final fee components
   const finalProtocolFee = protocolFee.sub(referralFee)
+  // The remaining part of the total trading fee after protocol fee is deducted
+  const finalTradingFee = totalTradingFee.sub(protocolFee)
 
-  return callback({
+  // Amount remaining after *total* trading fee is deducted
+  const remainingAmount = amount.sub(totalTradingFee)
+
+  // Return the result object
+  return {
     amount: remainingAmount,
     protocolFee: finalProtocolFee,
-    tradingFee: remainingTradingFee,
-    referralFee,
-  })
+    tradingFee: finalTradingFee,
+    referralFee: referralFee,
+  }
 }
 
 /**

@@ -418,26 +418,27 @@ export class VirtualCurveSDK {
     )
   }
 
-  // /**
-  //  * Retrieves pools with optional filtering by owner
-  //  * @param owner Optional PublicKey or string to filter pools by owner
-  //  * @returns Array of pool accounts with their addresses
-  //  */
-  // async getPools(owner?: PublicKey | string) {
-  //   const filters = []
+  /**
+   * Retrieves pools with optional filtering by owner
+   * @param owner Optional PublicKey or string to filter pools by owner
+   * @returns Array of pool accounts with their addresses
+   */
+  async getPools(owner?: PublicKey | string) {
+    const filters: GetProgramAccountsFilter[] = []
 
-  //   if (owner) {
-  //     const ownerKey = typeof owner === 'string' ? new PublicKey(owner) : owner
-  //     filters.push({
-  //       memcmp: {
-  //         offset: 8, // Adjust this offset based on the actual position of the owner field
-  //         bytes: ownerKey.toBase58(),
-  //       },
-  //     })
-  //   }
+    if (owner) {
+      const ownerKey = typeof owner === 'string' ? new PublicKey(owner) : owner
+      filters.push({
+        memcmp: {
+          offset: 292, // Correct offset for the owner field after the discriminator and other fields
+          bytes: ownerKey.toBase58(),
+          encoding: 'base58',
+        },
+      })
+    }
 
-  //   return await this.program.account.virtualPool.all(filters)
-  // }
+    return await this.program.account.virtualPool.all(filters)
+  }
 
   /**
    * Retrieves configs with optional filtering by owner
@@ -477,7 +478,7 @@ export class VirtualCurveSDK {
     hasReferral: boolean,
     currentPoint: BN
   ) {
-    const quoteResult = quoteExactIn(
+    return quoteExactIn(
       virtualPool,
       config,
       swapBaseForQuote,

@@ -114,4 +114,94 @@ test('quote exact in test', () => {
     protocolFee: result.fee.protocol.toString(),
     nextSqrtPrice: result.nextSqrtPrice.toString(),
   })
+
+  expect(result.amountOut.toString()).toMatchInlineSnapshot(`"4921601219"`)
+  expect(result.fee.trading.toString()).toMatchInlineSnapshot(`"0"`)
+  expect(result.nextSqrtPrice.toString()).toMatchInlineSnapshot(
+    `"8315081533034529335"`
+  )
+})
+
+test('quote exact in test with fees', () => {
+  const sqrtActiveId = -100 // Same as Rust test
+  const binStep = 80 // 80bps, same as Rust test
+
+  const sqrtStartPrice = getPriceFromId(sqrtActiveId, binStep)
+
+  // Define curve points
+  const curve = [
+    {
+      sqrtPrice: MAX_SQRT_PRICE,
+      liquidity: u128Shl('1000000000000000000000000', 64),
+    },
+  ]
+  const curveLength = curve.length
+
+  // Create test pool configuration
+  const config: PoolConfig = {
+    ...DEFAULT_POOL_CONFIG,
+    sqrtStartPrice,
+    migrationQuoteThreshold: MIGRATION_QUOTE_THRESHOLD,
+    collectFeeMode: 1, // OutputToken mode
+    curve: Array(MAX_CURVE_POINT)
+      .fill(null)
+      .map((_, i) => {
+        if (i < curveLength) {
+          return curve[i]
+        } else {
+          return {
+            sqrtPrice: MAX_SQRT_PRICE, // set max
+            liquidity: new BN(0),
+          }
+        }
+      }),
+    poolFees: {
+      ...DEFAULT_POOL_CONFIG['poolFees'],
+      baseFee: {
+        cliffFeeNumerator: new BN(2_500_000),
+        periodFrequency: new BN(0),
+        reductionFactor: new BN(0),
+        numberOfPeriod: 0,
+        feeSchedulerMode: 0,
+        padding0: [],
+      },
+    },
+  }
+  // Create virtual pool state
+  const virtualPool: VirtualPool = {
+    ...DEFAULT_VIRTUAL_POOL,
+    sqrtPrice: config.sqrtStartPrice,
+    poolFees: toPoolFeesConfig(config.poolFees),
+    baseReserve: getInitialBaseSupply(config),
+  }
+
+  // Test quote for quote to base swap
+  const amountIn = new BN('1000000000') // 1k USDC
+  const result = quoteExactIn(
+    virtualPool,
+    config,
+    false, // quote to base
+    amountIn,
+    false, // no referral
+    new BN(0) // current point
+  )
+
+  // Verify results
+  //   expect(result.amountOut.gt(new BN(0))).toBe(true)
+  //   expect(result.fee.trading.gte(new BN(0))).toBe(true)
+  //   expect(result.fee.protocol.gte(new BN(0))).toBe(true)
+
+  // Log results similar to Rust test
+  console.log('Quote Result:', {
+    amountOut: result.amountOut.toString(),
+    tradingFee: result.fee.trading.toString(),
+    protocolFee: result.fee.protocol.toString(),
+    nextSqrtPrice: result.nextSqrtPrice.toString(),
+  })
+
+  expect(result.amountOut.toString()).toMatchInlineSnapshot(`"4909297216"`)
+  expect(result.fee.trading.toString()).toMatchInlineSnapshot(`"12304003"`)
+  expect(result.nextSqrtPrice.toString()).toMatchInlineSnapshot(
+    `"8315081533034529335"`
+  )
 })
