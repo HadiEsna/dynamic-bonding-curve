@@ -3710,7 +3710,7 @@ export type VirtualCurve = {
             }
           },
           {
-            name: 'transferFeeExcludedAmountIn'
+            name: 'amountIn'
             type: 'u64'
           },
           {
@@ -7308,7 +7308,7 @@ export const Idl: VirtualCurve = {
             },
           },
           {
-            name: 'transferFeeExcludedAmountIn',
+            name: 'amountIn',
             type: 'u64',
           },
           {
