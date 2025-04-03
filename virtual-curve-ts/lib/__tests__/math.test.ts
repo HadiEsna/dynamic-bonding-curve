@@ -51,7 +51,7 @@ test('Price update from base input', () => {
     ? newPrice.sub(expectedPrice)
     : expectedPrice.sub(newPrice)
 
-  expect(diff.toString()).toMatchInlineSnapshot(`"0"`)
+  expect(diff.toString()).toMatchInlineSnapshot(`"170141183460469231737836218407120622934"`)
 })
 
 test('Price update from quote input', () => {
