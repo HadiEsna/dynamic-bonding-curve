@@ -1,10 +1,12 @@
 {
   "name": "virtual-curve-ts",
-  "module": "index.ts",
+  "module": "dist/index.mjs",
   "type": "module",
   "scripts": {
-    "build": "bun build lib/index.ts --outdir dist --format esm --packages=external"
+    "build": "bunx bunup src/index.ts --format esm,cjs --dts"
   },
+  "types": "dist/index.d.ts",
+  "main": "dist/index.cjs",
   "peerDependencies": {
     "@coral-xyz/anchor": "^0.31.0",
     "@solana/spl-token": "^0.4.13",
