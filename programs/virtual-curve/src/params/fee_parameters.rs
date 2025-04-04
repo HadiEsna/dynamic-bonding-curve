@@ -5,9 +5,6 @@ use crate::constants::fee::{
 };
 use crate::constants::{BASIS_POINT_MAX, BIN_STEP_BPS_DEFAULT, BIN_STEP_BPS_U128_DEFAULT, U24_MAX};
 use crate::error::PoolError;
-use crate::fee_math::get_fee_in_period;
-use crate::safe_math::SafeMath;
-use crate::state::fee::{BaseFeeStruct, DynamicFeeStruct, FeeSchedulerMode, PoolFeesStruct};
 use crate::state::{BaseFeeConfig, DynamicFeeConfig, PoolFeesConfig};
 use anchor_lang::prelude::*;
 
@@ -30,33 +27,11 @@ pub struct BaseFeeParameters {
 }
 
 impl BaseFeeParameters {
-    pub fn get_max_base_fee_numerator(&self) -> u64 {
-        self.cliff_fee_numerator
-    }
-    pub fn get_min_base_fee_numerator(&self) -> Result<u64> {
-        let fee_scheduler_mode = FeeSchedulerMode::try_from(self.fee_scheduler_mode)
-            .map_err(|_| PoolError::TypeCastFailed)?;
-        match fee_scheduler_mode {
-            FeeSchedulerMode::Linear => {
-                let fee_numerator = self.cliff_fee_numerator.safe_sub(
-                    self.reduction_factor
-                        .safe_mul(self.number_of_period.into())?,
-                )?;
-                Ok(fee_numerator)
-            }
-            FeeSchedulerMode::Exponential => {
-                let period =
-                    u16::try_from(self.number_of_period).map_err(|_| PoolError::MathOverflow)?;
-                let fee_numerator =
-                    get_fee_in_period(self.cliff_fee_numerator, self.reduction_factor, period)?;
-                Ok(fee_numerator)
-            }
-        }
-    }
-
     fn validate(&self) -> Result<()> {
-        let min_fee_numerator = self.get_min_base_fee_numerator()?;
-        let max_fee_numerator = self.get_max_base_fee_numerator();
+        let base_fee_config = self.to_base_fee_config();
+
+        let min_fee_numerator = base_fee_config.get_min_base_fee_numerator()?;
+        let max_fee_numerator = base_fee_config.get_max_base_fee_numerator();
         validate_fee_fraction(min_fee_numerator, FEE_DENOMINATOR)?;
         validate_fee_fraction(max_fee_numerator, FEE_DENOMINATOR)?;
         require!(
@@ -64,16 +39,6 @@ impl BaseFeeParameters {
             PoolError::ExceedMaxFeeBps
         );
         Ok(())
-    }
-    fn to_base_fee_struct(&self) -> BaseFeeStruct {
-        BaseFeeStruct {
-            cliff_fee_numerator: self.cliff_fee_numerator,
-            number_of_period: self.number_of_period,
-            period_frequency: self.period_frequency,
-            reduction_factor: self.reduction_factor,
-            fee_scheduler_mode: self.fee_scheduler_mode,
-            ..Default::default()
-        }
     }
 
     pub fn to_base_fee_config(&self) -> BaseFeeConfig {
@@ -111,28 +76,6 @@ impl PoolFeeParamters {
             }
         }
     }
-    pub fn to_pool_fees_struct(&self) -> PoolFeesStruct {
-        let &PoolFeeParamters {
-            base_fee,
-            dynamic_fee,
-        } = self;
-        if let Some(dynamic_fee) = dynamic_fee {
-            PoolFeesStruct {
-                base_fee: base_fee.to_base_fee_struct(),
-                protocol_fee_percent: PROTOCOL_FEE_PERCENT,
-                referral_fee_percent: HOST_FEE_PERCENT,
-                dynamic_fee: dynamic_fee.to_dynamic_fee_struct(),
-                ..Default::default()
-            }
-        } else {
-            PoolFeesStruct {
-                base_fee: base_fee.to_base_fee_struct(),
-                protocol_fee_percent: PROTOCOL_FEE_PERCENT,
-                referral_fee_percent: HOST_FEE_PERCENT,
-                ..Default::default()
-            }
-        }
-    }
 }
 
 #[derive(Copy, Clone, Debug, AnchorSerialize, AnchorDeserialize, InitSpace, Default)]
@@ -160,19 +103,7 @@ impl DynamicFeeParameters {
             ..Default::default()
         }
     }
-    fn to_dynamic_fee_struct(&self) -> DynamicFeeStruct {
-        DynamicFeeStruct {
-            initialized: 1,
-            bin_step: self.bin_step,
-            bin_step_u128: self.bin_step_u128,
-            filter_period: self.filter_period,
-            decay_period: self.decay_period,
-            reduction_factor: self.reduction_factor,
-            max_volatility_accumulator: self.max_volatility_accumulator,
-            variable_fee_control: self.variable_fee_control,
-            ..Default::default()
-        }
-    }
+
     pub fn validate(&self) -> Result<()> {
         // force all bin_step as 1 bps for first version
         require!(
@@ -254,6 +185,7 @@ impl PoolFeeParamters {
         if let Some(dynamic_fee) = self.dynamic_fee {
             dynamic_fee.validate()?;
         }
+
         Ok(())
     }
 }
