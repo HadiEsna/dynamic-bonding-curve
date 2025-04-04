@@ -5,7 +5,7 @@
   "scripts": {
     "build": "bunx bunup src/index.ts --format esm,cjs --dts"
   },
-  "types": "dist/index.d.ts",
+  "types": "dist/index.d.mts",
   "main": "dist/index.cjs",
   "peerDependencies": {
     "@coral-xyz/anchor": "^0.31.0",
