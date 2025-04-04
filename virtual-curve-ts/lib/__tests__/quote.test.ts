@@ -87,7 +87,6 @@ test('quote exact in test', () => {
   const virtualPool: VirtualPool = {
     ...DEFAULT_VIRTUAL_POOL,
     sqrtPrice: config.sqrtStartPrice,
-    poolFees: toPoolFeesConfig(config.poolFees),
     baseReserve: getInitialBaseSupply(config),
   }
 
@@ -171,7 +170,6 @@ test('quote exact in test with fees', () => {
   const virtualPool: VirtualPool = {
     ...DEFAULT_VIRTUAL_POOL,
     sqrtPrice: config.sqrtStartPrice,
-    poolFees: toPoolFeesConfig(config.poolFees),
     baseReserve: getInitialBaseSupply(config),
   }
 
@@ -252,8 +250,14 @@ test('quote exact in test with fees', () => {
     protocolFee: resultBaseToQuote.fee.protocol.toString(),
     nextSqrtPrice: resultBaseToQuote.nextSqrtPrice.toString(),
   })
-  expect(resultBaseToQuote.amountOut.toString()).toMatchInlineSnapshot(`"202677940"`)
-  expect(resultBaseToQuote.fee.trading.toString()).toMatchInlineSnapshot(`"507965"`)
+  expect(resultBaseToQuote.amountOut.toString()).toMatchInlineSnapshot(
+    `"202677940"`
+  )
+  expect(resultBaseToQuote.fee.trading.toString()).toMatchInlineSnapshot(
+    `"507965"`
+  )
   expect(resultBaseToQuote.fee.protocol.toString()).toMatchInlineSnapshot(`"0"`)
-  expect(resultBaseToQuote.nextSqrtPrice.toString()).toMatchInlineSnapshot(`"8315081521957945371"`)
+  expect(resultBaseToQuote.nextSqrtPrice.toString()).toMatchInlineSnapshot(
+    `"8315081521957945371"`
+  )
 })

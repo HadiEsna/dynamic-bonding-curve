@@ -6,6 +6,8 @@ import {
   TradeDirection,
   type FeeMode,
   type FeeOnAmountResult,
+  type PoolFeesConfig,
+  type VolatilityTracker,
 } from './types'
 import {
   getDeltaAmountBaseUnsigned,
@@ -87,7 +89,8 @@ function getSwapResult(
   // Calculate fees if they're applied on input
   if (feeMode.feesOnInput) {
     const feeResult = calculateFees(
-      pool.poolFees,
+      config.poolFees,
+      pool.volatilityTracker,
       amountIn,
       feeMode.hasReferral,
       currentPoint,
@@ -110,7 +113,8 @@ function getSwapResult(
   // Calculate fees if they're applied on output
   if (!feeMode.feesOnInput) {
     const feeResult = calculateFees(
-      pool.poolFees,
+      config.poolFees,
+      pool.volatilityTracker,
       outputAmount, // Calculate fees on the gross output amount
       feeMode.hasReferral,
       currentPoint,
@@ -283,7 +287,8 @@ function getSwapAmountFromQuoteToBase(
 
 // same as get_fee_on_amount in rust
 function calculateFees(
-  poolFees: VirtualPool['poolFees'],
+  poolFees: PoolFeesConfig,
+  volatilityTracker: VolatilityTracker,
   amount: BN,
   hasReferral: boolean,
   currentPoint: BN,
@@ -292,6 +297,7 @@ function calculateFees(
   // Get total trading fee numerator
   const tradeFeeNumerator = getTotalTradingFee(
     poolFees,
+    volatilityTracker,
     currentPoint,
     activationPoint
   )
@@ -391,7 +397,8 @@ export function getFeeMode(
  * Matches Rust's get_total_trading_fee
  */
 function getTotalTradingFee(
-  poolFees: VirtualPool['poolFees'],
+  poolFees: PoolFeesConfig,
+  volatilityTracker: VolatilityTracker,
   currentPoint: BN,
   activationPoint: BN
 ): BN {
@@ -400,7 +407,7 @@ function getTotalTradingFee(
     currentPoint,
     activationPoint
   )
-  const variableFee = getVariableFee(poolFees.dynamicFee)
+  const variableFee = getVariableFee(poolFees.dynamicFee, volatilityTracker)
   return baseFeeNumerator.add(variableFee)
 }
 
@@ -408,7 +415,7 @@ function getTotalTradingFee(
  * Matches Rust's get_current_base_fee_numerator
  */
 function getCurrentBaseFeeNumerator(
-  baseFee: VirtualPool['poolFees']['baseFee'],
+  baseFee: PoolFeesConfig['baseFee'],
   currentPoint: BN,
   activationPoint: BN
 ): BN {
@@ -440,12 +447,15 @@ function getCurrentBaseFeeNumerator(
 /**
  * Matches Rust's get_variable_fee
  */
-function getVariableFee(dynamicFee: VirtualPool['poolFees']['dynamicFee']): BN {
+function getVariableFee(
+  dynamicFee: PoolFeesConfig['dynamicFee'],
+  volatilityTracker: VolatilityTracker
+): BN {
   if (!dynamicFee.initialized) {
     return new BN(0)
   }
 
-  const squareVfaBin = dynamicFee.volatilityAccumulator
+  const squareVfaBin = volatilityTracker.volatilityAccumulator
     .mul(new BN(dynamicFee.binStep))
     .pow(new BN(2))
 

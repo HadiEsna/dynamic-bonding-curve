@@ -1,5 +1,5 @@
 export type VirtualCurve = {
-  address: 'virwvN4ee9tWmGoT37FdxZMmxH54m64sYzPpBvXA3ZV'
+  address: 'virEFLZsQm1iFAs8py1XnziJ67gTzW2bfCWhxNPfccD'
   metadata: {
     name: 'virtualCurve'
     version: '0.1.0'
@@ -3052,48 +3052,6 @@ export type VirtualCurve = {
       }
     },
     {
-      name: 'baseFeeStruct'
-      serialization: 'bytemuck'
-      repr: {
-        kind: 'c'
-      }
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'cliffFeeNumerator'
-            type: 'u64'
-          },
-          {
-            name: 'feeSchedulerMode'
-            type: 'u8'
-          },
-          {
-            name: 'padding0'
-            type: {
-              array: ['u8', 5]
-            }
-          },
-          {
-            name: 'numberOfPeriod'
-            type: 'u16'
-          },
-          {
-            name: 'periodFrequency'
-            type: 'u64'
-          },
-          {
-            name: 'reductionFactor'
-            type: 'u64'
-          },
-          {
-            name: 'padding1'
-            type: 'u64'
-          }
-        ]
-      }
-    },
-    {
       name: 'claimFeeOperator'
       docs: ['Parameter that set by the protocol']
       serialization: 'bytemuck'
@@ -3325,72 +3283,6 @@ export type VirtualCurve = {
           {
             name: 'variableFeeControl'
             type: 'u32'
-          }
-        ]
-      }
-    },
-    {
-      name: 'dynamicFeeStruct'
-      serialization: 'bytemuck'
-      repr: {
-        kind: 'c'
-      }
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'initialized'
-            type: 'u8'
-          },
-          {
-            name: 'padding'
-            type: {
-              array: ['u8', 7]
-            }
-          },
-          {
-            name: 'maxVolatilityAccumulator'
-            type: 'u32'
-          },
-          {
-            name: 'variableFeeControl'
-            type: 'u32'
-          },
-          {
-            name: 'binStep'
-            type: 'u16'
-          },
-          {
-            name: 'filterPeriod'
-            type: 'u16'
-          },
-          {
-            name: 'decayPeriod'
-            type: 'u16'
-          },
-          {
-            name: 'reductionFactor'
-            type: 'u16'
-          },
-          {
-            name: 'lastUpdateTimestamp'
-            type: 'u64'
-          },
-          {
-            name: 'binStepU128'
-            type: 'u128'
-          },
-          {
-            name: 'sqrtPriceReference'
-            type: 'u128'
-          },
-          {
-            name: 'volatilityAccumulator'
-            type: 'u128'
-          },
-          {
-            name: 'volatilityReference'
-            type: 'u128'
           }
         ]
       }
@@ -4200,76 +4092,6 @@ export type VirtualCurve = {
       }
     },
     {
-      name: 'poolFeesStruct'
-      docs: [
-        'Information regarding fee charges',
-        'trading_fee = amount * trade_fee_numerator / denominator',
-        'protocol_fee = trading_fee * protocol_fee_percentage / 100',
-        'referral_fee = protocol_fee * referral_percentage / 100',
-        'partner_fee = trading_fee - protocol_fee - referral_fee'
-      ]
-      serialization: 'bytemuck'
-      repr: {
-        kind: 'c'
-      }
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'baseFee'
-            docs: [
-              'Trade fees are extra token amounts that are held inside the token',
-              'accounts during a trade, making the value of liquidity tokens rise.',
-              'Trade fee numerator'
-            ]
-            type: {
-              defined: {
-                name: 'baseFeeStruct'
-              }
-            }
-          },
-          {
-            name: 'protocolFeePercent'
-            docs: [
-              'Protocol trading fees are extra token amounts that are held inside the token',
-              'accounts during a trade, with the equivalent in pool tokens minted to',
-              'the protocol of the program.',
-              'Protocol trade fee numerator'
-            ]
-            type: 'u8'
-          },
-          {
-            name: 'referralFeePercent'
-            docs: ['referral fee']
-            type: 'u8'
-          },
-          {
-            name: 'padding0'
-            docs: ['padding']
-            type: {
-              array: ['u8', 6]
-            }
-          },
-          {
-            name: 'dynamicFee'
-            docs: ['dynamic fee']
-            type: {
-              defined: {
-                name: 'dynamicFeeStruct'
-              }
-            }
-          },
-          {
-            name: 'padding1'
-            docs: ['padding']
-            type: {
-              array: ['u64', 2]
-            }
-          }
-        ]
-      }
-    },
-    {
       name: 'poolMetrics'
       serialization: 'bytemuck'
       repr: {
@@ -4356,11 +4178,11 @@ export type VirtualCurve = {
         kind: 'struct'
         fields: [
           {
-            name: 'poolFees'
-            docs: ['Pool fee']
+            name: 'volatilityTracker'
+            docs: ['volatility tracker']
             type: {
               defined: {
-                name: 'poolFeesStruct'
+                name: 'volatilityTracker'
               }
             }
           },
@@ -4474,12 +4296,46 @@ export type VirtualCurve = {
           }
         ]
       }
+    },
+    {
+      name: 'volatilityTracker'
+      serialization: 'bytemuck'
+      repr: {
+        kind: 'c'
+      }
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'lastUpdateTimestamp'
+            type: 'u64'
+          },
+          {
+            name: 'padding'
+            type: {
+              array: ['u8', 8]
+            }
+          },
+          {
+            name: 'sqrtPriceReference'
+            type: 'u128'
+          },
+          {
+            name: 'volatilityAccumulator'
+            type: 'u128'
+          },
+          {
+            name: 'volatilityReference'
+            type: 'u128'
+          }
+        ]
+      }
     }
   ]
 }
 
 export const Idl: VirtualCurve = {
-  address: 'virwvN4ee9tWmGoT37FdxZMmxH54m64sYzPpBvXA3ZV',
+  address: 'virEFLZsQm1iFAs8py1XnziJ67gTzW2bfCWhxNPfccD',
   metadata: {
     name: 'virtualCurve',
     version: '0.1.0',
@@ -6650,48 +6506,6 @@ export const Idl: VirtualCurve = {
       },
     },
     {
-      name: 'baseFeeStruct',
-      serialization: 'bytemuck',
-      repr: {
-        kind: 'c',
-      },
-      type: {
-        kind: 'struct',
-        fields: [
-          {
-            name: 'cliffFeeNumerator',
-            type: 'u64',
-          },
-          {
-            name: 'feeSchedulerMode',
-            type: 'u8',
-          },
-          {
-            name: 'padding0',
-            type: {
-              array: ['u8', 5],
-            },
-          },
-          {
-            name: 'numberOfPeriod',
-            type: 'u16',
-          },
-          {
-            name: 'periodFrequency',
-            type: 'u64',
-          },
-          {
-            name: 'reductionFactor',
-            type: 'u64',
-          },
-          {
-            name: 'padding1',
-            type: 'u64',
-          },
-        ],
-      },
-    },
-    {
       name: 'claimFeeOperator',
       docs: ['Parameter that set by the protocol'],
       serialization: 'bytemuck',
@@ -6923,72 +6737,6 @@ export const Idl: VirtualCurve = {
           {
             name: 'variableFeeControl',
             type: 'u32',
-          },
-        ],
-      },
-    },
-    {
-      name: 'dynamicFeeStruct',
-      serialization: 'bytemuck',
-      repr: {
-        kind: 'c',
-      },
-      type: {
-        kind: 'struct',
-        fields: [
-          {
-            name: 'initialized',
-            type: 'u8',
-          },
-          {
-            name: 'padding',
-            type: {
-              array: ['u8', 7],
-            },
-          },
-          {
-            name: 'maxVolatilityAccumulator',
-            type: 'u32',
-          },
-          {
-            name: 'variableFeeControl',
-            type: 'u32',
-          },
-          {
-            name: 'binStep',
-            type: 'u16',
-          },
-          {
-            name: 'filterPeriod',
-            type: 'u16',
-          },
-          {
-            name: 'decayPeriod',
-            type: 'u16',
-          },
-          {
-            name: 'reductionFactor',
-            type: 'u16',
-          },
-          {
-            name: 'lastUpdateTimestamp',
-            type: 'u64',
-          },
-          {
-            name: 'binStepU128',
-            type: 'u128',
-          },
-          {
-            name: 'sqrtPriceReference',
-            type: 'u128',
-          },
-          {
-            name: 'volatilityAccumulator',
-            type: 'u128',
-          },
-          {
-            name: 'volatilityReference',
-            type: 'u128',
           },
         ],
       },
@@ -7798,76 +7546,6 @@ export const Idl: VirtualCurve = {
       },
     },
     {
-      name: 'poolFeesStruct',
-      docs: [
-        'Information regarding fee charges',
-        'trading_fee = amount * trade_fee_numerator / denominator',
-        'protocol_fee = trading_fee * protocol_fee_percentage / 100',
-        'referral_fee = protocol_fee * referral_percentage / 100',
-        'partner_fee = trading_fee - protocol_fee - referral_fee',
-      ],
-      serialization: 'bytemuck',
-      repr: {
-        kind: 'c',
-      },
-      type: {
-        kind: 'struct',
-        fields: [
-          {
-            name: 'baseFee',
-            docs: [
-              'Trade fees are extra token amounts that are held inside the token',
-              'accounts during a trade, making the value of liquidity tokens rise.',
-              'Trade fee numerator',
-            ],
-            type: {
-              defined: {
-                name: 'baseFeeStruct',
-              },
-            },
-          },
-          {
-            name: 'protocolFeePercent',
-            docs: [
-              'Protocol trading fees are extra token amounts that are held inside the token',
-              'accounts during a trade, with the equivalent in pool tokens minted to',
-              'the protocol of the program.',
-              'Protocol trade fee numerator',
-            ],
-            type: 'u8',
-          },
-          {
-            name: 'referralFeePercent',
-            docs: ['referral fee'],
-            type: 'u8',
-          },
-          {
-            name: 'padding0',
-            docs: ['padding'],
-            type: {
-              array: ['u8', 6],
-            },
-          },
-          {
-            name: 'dynamicFee',
-            docs: ['dynamic fee'],
-            type: {
-              defined: {
-                name: 'dynamicFeeStruct',
-              },
-            },
-          },
-          {
-            name: 'padding1',
-            docs: ['padding'],
-            type: {
-              array: ['u64', 2],
-            },
-          },
-        ],
-      },
-    },
-    {
       name: 'poolMetrics',
       serialization: 'bytemuck',
       repr: {
@@ -7954,11 +7632,11 @@ export const Idl: VirtualCurve = {
         kind: 'struct',
         fields: [
           {
-            name: 'poolFees',
-            docs: ['Pool fee'],
+            name: 'volatilityTracker',
+            docs: ['volatility tracker'],
             type: {
               defined: {
-                name: 'poolFeesStruct',
+                name: 'volatilityTracker',
               },
             },
           },
@@ -8069,6 +7747,40 @@ export const Idl: VirtualCurve = {
             type: {
               array: ['u64', 10],
             },
+          },
+        ],
+      },
+    },
+    {
+      name: 'volatilityTracker',
+      serialization: 'bytemuck',
+      repr: {
+        kind: 'c',
+      },
+      type: {
+        kind: 'struct',
+        fields: [
+          {
+            name: 'lastUpdateTimestamp',
+            type: 'u64',
+          },
+          {
+            name: 'padding',
+            type: {
+              array: ['u8', 8],
+            },
+          },
+          {
+            name: 'sqrtPriceReference',
+            type: 'u128',
+          },
+          {
+            name: 'volatilityAccumulator',
+            type: 'u128',
+          },
+          {
+            name: 'volatilityReference',
+            type: 'u128',
           },
         ],
       },

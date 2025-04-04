@@ -172,8 +172,6 @@ export type LiquidityDistributionParameters =
 // }
 export type PoolFeesConfig = IdlTypes<IDL>['poolFeesConfig']
 
-export type BaseFeeConfig = IdlTypes<IDL>['baseFeeConfig']
-
 // {
 //   initialized: number;
 //   padding: number[];
@@ -190,9 +188,15 @@ export type DynamicFeeConfig = IdlTypes<IDL>['dynamicFeeConfig']
 
 export type LiquidityDistributionConfig =
   IdlTypes<IDL>['liquidityDistributionParameters']
-export type PoolFeesStruct = IdlTypes<IDL>['poolFeesStruct']
-export type BaseFeeStruct = IdlTypes<IDL>['baseFeeConfig']
-export type DynamicFeeStruct = IdlTypes<IDL>['dynamicFeeParameters']
+
+//  {
+//   tradeFeeNumerator: BN;
+//   tradeFeeDenominator: BN;
+//   protocolTradeFeeNumerator: BN;
+//   protocolTradeFeeDenominator: BN;
+// }
+export type PoolFees = IdlTypes<IDL>['poolFees']
+export type BaseFeeConfig = IdlTypes<IDL>['baseFeeConfig']
 export type PoolMetrics = IdlTypes<IDL>['poolMetrics']
 export type SwapResult = IdlTypes<IDL>['swapResult']
 
@@ -264,6 +268,15 @@ export type PoolConfig = IdlAccounts<IDL>['poolConfig']
 export type MeteoraDammMigrationMetadata =
   IdlAccounts<IDL>['meteoraDammMigrationMetadata']
 
+// {
+//     lastUpdateTimestamp: BN;
+//     padding: number[];
+//     sqrtPriceReference: BN;
+//     volatilityAccumulator: BN;
+//     volatilityReference: BN;
+// }
+export type VolatilityTracker = IdlTypes<IDL>['volatilityTracker']
+
 export type VirtualPool = IdlAccounts<IDL>['virtualPool']
 
 export enum SwapDirection {
@@ -323,31 +336,6 @@ export interface FeeMode {
   feesOnBaseToken: boolean
   hasReferral: boolean
 }
-
-// {
-//   initialized: number
-//   maxVolatilityAccumulator: number
-//   variableFeeControl: number
-//   binStep: number
-//   filterPeriod: number
-//   decayPeriod: number
-//   reductionFactor: number
-//   lastUpdateTimestamp: BN
-//   binStepU128: BN
-//   sqrtPriceReference: BN
-//   volatilityAccumulator: BN
-//   volatilityReference: BN
-// }
-export type DynamicFee = VirtualPool['poolFees']['dynamicFee']
-
-// {
-//   cliffFeeNumerator: BN
-//   feeSchedulerMode: number
-//   numberOfPeriod: number
-//   periodFrequency: BN
-//   reductionFactor: BN
-// }
-export type BaseFee = VirtualPool['poolFees']['baseFee']
 
 export interface FeeOnAmountResult {
   amount: BN // Amount remaining after taking trading fee

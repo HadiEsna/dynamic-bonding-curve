@@ -26,7 +26,6 @@ import {
 import { BN } from 'bn.js'
 import TokenomicsChart from '../components/TokenomicsChart'
 import { TEMPLATES, TemplateKey } from '../lib/templates'
-import bs58 from 'bs58'
 import { useSendTransaction } from '../hooks/useSendTransaction'
 
 export const meta: MetaFunction = () => {

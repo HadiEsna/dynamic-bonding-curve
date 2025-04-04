@@ -6,6 +6,10 @@ import type {
   BaseFeeParameters,
   DynamicFeeParameters,
   VirtualPool,
+  PoolFees,
+  PoolFeesConfig,
+  BaseFeeConfig,
+  DynamicFeeConfig,
 } from './types'
 
 // Constants matching Rust implementation
@@ -66,9 +70,7 @@ function initializeCurve(
 /**
  * Convert pool fee parameters to config (matches Rust's to_pool_fees_config)
  */
-export function toPoolFeesConfig(
-  params: PoolFeeParamters
-): VirtualPool['poolFees'] {
+export function toPoolFeesConfig(params: PoolFeeParamters): PoolFeesConfig {
   return {
     baseFee: toBaseFeeConfig(params.baseFee),
     dynamicFee: toDynamicFeeConfig(params.dynamicFee),
@@ -84,7 +86,7 @@ export function toPoolFeesConfig(
  */
 export function toBaseFeeConfig(
   params: Omit<BaseFeeParameters, 'padding0'>
-): VirtualPool['poolFees']['baseFee'] {
+): BaseFeeConfig {
   return {
     cliffFeeNumerator: params.cliffFeeNumerator,
     periodFrequency: params.periodFrequency,
@@ -92,7 +94,6 @@ export function toBaseFeeConfig(
     numberOfPeriod: params.numberOfPeriod,
     feeSchedulerMode: params.feeSchedulerMode,
     padding0: [],
-    padding1: new BN(0),
   }
 }
 
@@ -101,7 +102,7 @@ export function toBaseFeeConfig(
  */
 export function toDynamicFeeConfig(
   params: DynamicFeeParameters | null
-): VirtualPool['poolFees']['dynamicFee'] {
+): DynamicFeeConfig {
   if (!params) {
     return {
       initialized: 0,
@@ -112,11 +113,8 @@ export function toDynamicFeeConfig(
       filterPeriod: 0,
       decayPeriod: 0,
       reductionFactor: 0,
-      lastUpdateTimestamp: new BN(0),
-      sqrtPriceReference: new BN(0),
-      volatilityAccumulator: new BN(0),
-      volatilityReference: new BN(0),
       binStepU128: new BN(0),
+      padding2: [],
     }
   }
 
@@ -130,10 +128,7 @@ export function toDynamicFeeConfig(
     decayPeriod: params.decayPeriod,
     reductionFactor: params.reductionFactor,
     binStepU128: params.binStepU128,
-    lastUpdateTimestamp: new BN(0),
-    sqrtPriceReference: new BN(0),
-    volatilityAccumulator: new BN(0),
-    volatilityReference: new BN(0),
+    padding2: [],
   }
 }
 

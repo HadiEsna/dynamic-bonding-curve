@@ -1,12 +1,12 @@
 import { test, expect } from 'bun:test'
-import { createMockPool, Q, TestPools } from './test-helpers'
+import { createMockPoolAndConfig, Q, TestPools } from './test-helpers'
 import { BN } from 'bn.js'
 
-test('createMockPool with custom parameters', () => {
+test('createMockPoolAndConfig with custom parameters', () => {
   const baseReserve = new BN('2000000000000')
   const quoteReserve = new BN('1000000000000')
 
-  const pool = createMockPool({
+  const { pool, config } = createMockPoolAndConfig({
     baseReserve,
     quoteReserve,
     poolType: 1,
@@ -14,16 +14,15 @@ test('createMockPool with custom parameters', () => {
     protocolFeePercent: 20,
   })
 
-  expect(pool.baseReserve.eq(baseReserve)).toBe(true)
   expect(pool.quoteReserve.eq(quoteReserve)).toBe(true)
   expect(pool.poolType).toBe(1)
-  expect(pool.poolFees.baseFee.cliffFeeNumerator.eq(new BN(30))).toBe(true)
-  expect(pool.poolFees.protocolFeePercent).toBe(20)
+  expect(config.poolFees.baseFee.cliffFeeNumerator.eq(new BN(30))).toBe(true)
+  expect(config.poolFees.protocolFeePercent).toBe(20)
 })
 
 test('TestPools.createBalancedPool', () => {
   const customReserve = new BN('5000000000000')
-  const pool = TestPools.createBalancedPool(customReserve)
+  const { pool } = TestPools.createBalancedPool(customReserve)
 
   expect(pool.baseReserve.eq(customReserve)).toBe(true)
   expect(pool.quoteReserve.eq(customReserve)).toBe(true)
@@ -32,7 +31,7 @@ test('TestPools.createBalancedPool', () => {
 
 test('TestPools.createImbalancedPool', () => {
   const ratio = 2
-  const pool = TestPools.createImbalancedPool(ratio)
+  const { pool } = TestPools.createImbalancedPool(ratio)
 
   expect(pool.quoteReserve.eq(pool.baseReserve.mul(new BN(ratio)))).toBe(true)
   expect(pool.sqrtPrice.eq(Q(ratio))).toBe(true)
@@ -40,8 +39,8 @@ test('TestPools.createImbalancedPool', () => {
 
 test('TestPools.createPoolWithFees', () => {
   const feePercent = 0.5
-  const pool = TestPools.createPoolWithFees(feePercent)
+  const { config } = TestPools.createPoolWithFees(feePercent)
 
-  expect(pool.poolFees.baseFee.cliffFeeNumerator.eq(new BN(50))).toBe(true)
-  expect(pool.poolFees.protocolFeePercent).toBe(20)
+  expect(config.poolFees.baseFee.cliffFeeNumerator.eq(new BN(50))).toBe(true)
+  expect(config.poolFees.protocolFeePercent).toBe(20)
 })

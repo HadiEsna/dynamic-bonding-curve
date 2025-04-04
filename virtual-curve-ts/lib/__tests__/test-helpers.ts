@@ -1,5 +1,6 @@
 import BN from 'bn.js'
-import { type VirtualPool } from '../src/types'
+import { type PoolConfig, type VirtualPool } from '../src/types'
+import { DEFAULT_POOL_CONFIG } from '../src/defaults'
 
 // Q64.64 format helper
 export const Q = (n: number) => {
@@ -10,44 +11,21 @@ export const Q = (n: number) => {
 /**
  * Creates a mock pool for testing with customizable reserves and price
  */
-export function createMockPool(params?: {
+export function createMockPoolAndConfig(params?: {
   baseReserve?: BN
   quoteReserve?: BN
   sqrtPrice?: BN
   poolType?: number
   cliffFeeNumerator?: BN
   protocolFeePercent?: number
-}): VirtualPool {
-  return {
-    poolFees: {
-      baseFee: {
-        cliffFeeNumerator: params?.cliffFeeNumerator || new BN(0),
-        feeSchedulerMode: 0,
-        padding0: [],
-        numberOfPeriod: 0,
-        periodFrequency: new BN(0),
-        reductionFactor: new BN(0),
-        padding1: new BN(0),
-      },
-      protocolFeePercent: params?.protocolFeePercent || 0,
-      referralFeePercent: 0,
-      dynamicFee: {
-        binStep: 0,
-        decayPeriod: 0,
-        filterPeriod: 0,
-        initialized: 0,
-        maxVolatilityAccumulator: 0,
-        padding: [],
-        binStepU128: new BN(0),
-        lastUpdateTimestamp: new BN(0),
-        reductionFactor: 0,
-        sqrtPriceReference: new BN(0),
-        variableFeeControl: 0,
-        volatilityAccumulator: new BN(0),
-        volatilityReference: new BN(0),
-      },
-      padding0: [],
-      padding1: [],
+}): { pool: VirtualPool; config: PoolConfig } {
+  const pool = {
+    volatilityTracker: {
+      lastUpdateTimestamp: new BN(0),
+      padding: [],
+      sqrtPriceReference: new BN(0),
+      volatilityAccumulator: new BN(0),
+      volatilityReference: new BN(0),
     },
     baseReserve: params?.baseReserve || new BN('1000000000000'),
     quoteReserve: params?.quoteReserve || new BN('1000000000000'),
@@ -75,6 +53,23 @@ export function createMockPool(params?: {
     padding0: [],
     padding1: [],
   }
+
+  const config = {
+    ...DEFAULT_POOL_CONFIG,
+    poolFees: {
+      ...DEFAULT_POOL_CONFIG.poolFees,
+      baseFee: {
+        ...DEFAULT_POOL_CONFIG.poolFees.baseFee,
+        cliffFeeNumerator: params?.cliffFeeNumerator || new BN(0),
+      },
+      protocolFeePercent: params?.protocolFeePercent || 0,
+    },
+  }
+
+  return {
+    pool,
+    config,
+  }
 }
 
 /**
@@ -85,7 +80,7 @@ export const TestPools = {
    * Creates a balanced pool with equal reserves
    */
   createBalancedPool: (reserveAmount: BN = new BN('1000000000000')) =>
-    createMockPool({
+    createMockPoolAndConfig({
       baseReserve: reserveAmount,
       quoteReserve: reserveAmount,
       sqrtPrice: Q(1.0),
@@ -97,7 +92,7 @@ export const TestPools = {
   createImbalancedPool: (ratio: number = 2) => {
     const baseReserve = new BN('1000000000000')
     const quoteReserve = baseReserve.mul(new BN(ratio))
-    return createMockPool({
+    return createMockPoolAndConfig({
       baseReserve,
       quoteReserve,
       sqrtPrice: Q(ratio),
@@ -108,7 +103,7 @@ export const TestPools = {
    * Creates a pool with fees
    */
   createPoolWithFees: (feePercent: number = 0.3) =>
-    createMockPool({
+    createMockPoolAndConfig({
       cliffFeeNumerator: new BN(Math.floor(feePercent * 100)),
       protocolFeePercent: 20, // 20% of trading fees go to protocol
     }),
