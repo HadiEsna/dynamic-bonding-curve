@@ -9,6 +9,12 @@ use crate::{
     SwapParameters,
 };
 
+/// Create partner metadata
+#[event]
+pub struct EvtPartnerMetadata {
+    pub partner_metadata: Pubkey,
+    pub fee_claimer: Pubkey,
+}
 /// Create config
 #[event]
 pub struct EvtCreateConfig {
