@@ -16,12 +16,6 @@ declare module '@remix-run/cloudflare' {
   }
 }
 
-const messedUpDeps = [
-  'bn.js',
-  '@coral-xyz/anchor',
-  '@solana/wallet-adapter-wallets',
-]
-
 export default defineConfig({
   resolve: {
     dedupe: ['buffer', 'bn.js'],

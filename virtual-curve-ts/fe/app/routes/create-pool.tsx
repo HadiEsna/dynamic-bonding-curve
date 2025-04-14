@@ -125,7 +125,7 @@ export default function CreatePool() {
         if (!config) throw new Error('Config not found')
 
         const mintKeypair = Keypair.generate()
-        const pool = await sdk.initializeVirtualPoolWithSplToken(
+        const { pool, ix } = await sdk.initializeVirtualPoolWithSplToken(
           {
             baseMint: mintKeypair.publicKey,
             config: value.configPubkey,
@@ -150,7 +150,7 @@ export default function CreatePool() {
           ...recentBlockhash,
         })
 
-        transaction.add(pool)
+        transaction.add(ix)
         transaction.partialSign(mintKeypair)
 
         // Use the sendTransaction hook instead of directly sending and confirming

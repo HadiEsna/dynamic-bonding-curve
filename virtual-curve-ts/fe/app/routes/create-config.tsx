@@ -205,7 +205,6 @@ export default function ConfigPage() {
           owner: value.owner,
           quoteMint: value.quoteMint,
           payer: publicKey,
-          systemProgram: SystemProgram.programId,
         },
         {
           padding: [],

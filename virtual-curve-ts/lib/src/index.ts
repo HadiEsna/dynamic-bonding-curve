@@ -107,12 +107,16 @@ export class VirtualCurveSDK {
 
   // Partner Functions
   async createConfig(
-    params: Omit<CreateConfigAccounts, 'program' | 'eventAuthority'>,
+    params: Omit<
+      CreateConfigAccounts,
+      'program' | 'eventAuthority' | 'systemProgram'
+    >,
     configParameters: ConfigParameters
   ) {
     const { ...rest } = params
     const accounts = {
       ...rest,
+      systemProgram: SystemProgram.programId,
       eventAuthority: this.getEventAuthority(),
       program: this.program.programId,
     }
@@ -284,7 +288,7 @@ export class VirtualCurveSDK {
       .accounts(accounts)
       .instruction()
 
-    return ix
+    return { pool, ix }
   }
 
   async initializeVirtualPoolWithToken2022(
@@ -557,3 +561,4 @@ export class VirtualCurveSDK {
 }
 
 export * from './constants'
+export * from './template'
