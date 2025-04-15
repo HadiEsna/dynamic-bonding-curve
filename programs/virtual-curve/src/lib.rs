@@ -22,10 +22,6 @@ pub mod tests;
 
 pub mod params;
 
-#[cfg(feature = "local")]
-declare_id!("2grmPSxKzQBhRrTRjWazVtMkRGFbFaqLakxGEZfnXB5u");
-
-#[cfg(not(feature = "local"))]
 declare_id!("virEFLZsQm1iFAs8py1XnziJ67gTzW2bfCWhxNPfccD");
 
 #[program]
@@ -74,12 +70,6 @@ pub mod virtual_curve {
         instructions::handle_partner_withdraw_surplus(ctx)
     }
 
-    pub fn partner_claim_lp_from_meteora_dynamic_amm<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, MigrateMeteoraDammClaimLpTokenCtx<'info>>,
-    ) -> Result<()> {
-        instructions::handle_migrate_meteora_damm_partner_claim_lp_token(ctx)
-    }
-
     /// POOL CREATOR FUNCTIONS ////
     pub fn initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
         ctx: Context<'_, '_, 'c, 'info, InitializeVirtualPoolWithSplTokenCtx<'info>>,
@@ -95,10 +85,11 @@ pub mod virtual_curve {
         instructions::handle_initialize_virtual_pool_with_token2022(ctx, params)
     }
 
-    pub fn creator_claim_lp_from_meteora_dynamic_amm<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, MigrateMeteoraDammClaimLpTokenCtx<'info>>,
+    pub fn create_virtual_pool_metadata(
+        ctx: Context<CreateVirtualPoolMetadataCtx>,
+        metadata: CreateVirtualPoolMetadataParameters,
     ) -> Result<()> {
-        instructions::handle_migrate_meteora_damm_creator_claim_lp_token(ctx)
+        instructions::handle_create_virtual_pool_metadata(ctx, metadata)
     }
 
     /// TRADING BOTS FUNCTIONS ////
@@ -107,6 +98,11 @@ pub mod virtual_curve {
     }
 
     /// PERMISSIONLESS FUNCTIONS ///
+    /// create locker
+    pub fn create_locker(ctx: Context<CreateLockerCtx>) -> Result<()> {
+        instructions::handle_create_locker(ctx)
+    }
+    /// migrate damm v1
     pub fn migration_meteora_damm_create_metadata<'c: 'info, 'info>(
         ctx: Context<'_, '_, 'c, 'info, MigrationMeteoraDammCreateMetadataCtx<'info>>,
     ) -> Result<()> {
@@ -119,31 +115,19 @@ pub mod virtual_curve {
         instructions::handle_migrate_meteora_damm(ctx)
     }
 
-    pub fn migrate_meteora_damm_lock_lp_token_for_creator<'c: 'info, 'info>(
+    pub fn migrate_meteora_damm_lock_lp_token<'c: 'info, 'info>(
         ctx: Context<'_, '_, 'c, 'info, MigrateMeteoraDammLockLpTokenCtx<'info>>,
     ) -> Result<()> {
-        instructions::handle_migrate_meteora_damm_lock_lp_token_for_creator(ctx)
+        instructions::handle_migrate_meteora_damm_lock_lp_token(ctx)
     }
 
-    pub fn migrate_meteora_damm_lock_lp_token_for_partner<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, MigrateMeteoraDammLockLpTokenCtx<'info>>,
-    ) -> Result<()> {
-        instructions::handle_migrate_meteora_damm_lock_lp_token_for_partner(ctx)
-    }
-
-    pub fn migrate_meteora_damm_partner_claim_lp_token<'c: 'info, 'info>(
+    pub fn migrate_meteora_damm_claim_lp_token<'c: 'info, 'info>(
         ctx: Context<'_, '_, 'c, 'info, MigrateMeteoraDammClaimLpTokenCtx<'info>>,
     ) -> Result<()> {
-        instructions::handle_migrate_meteora_damm_partner_claim_lp_token(ctx)
+        instructions::handle_migrate_meteora_damm_claim_lp_token(ctx)
     }
 
-    pub fn migrate_meteora_damm_creator_claim_lp_token<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, MigrateMeteoraDammClaimLpTokenCtx<'info>>,
-    ) -> Result<()> {
-        instructions::handle_migrate_meteora_damm_creator_claim_lp_token(ctx)
-    }
-
-    // damm v2
+    // migrate damm v2
     pub fn migration_damm_v2_create_metadata<'c: 'info, 'info>(
         ctx: Context<'_, '_, 'c, 'info, MigrationDammV2CreateMetadataCtx<'info>>,
     ) -> Result<()> {

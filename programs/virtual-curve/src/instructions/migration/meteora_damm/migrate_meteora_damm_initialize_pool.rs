@@ -6,7 +6,7 @@ use anchor_spl::token::{
 use crate::{
     constants::seeds::POOL_AUTHORITY_PREFIX,
     safe_math::SafeMath,
-    state::{MigrationOption, PoolConfig, VirtualPool},
+    state::{MigrationOption, MigrationProgress, PoolConfig, VirtualPool},
     *,
 };
 
@@ -147,7 +147,7 @@ impl<'info> MigrateMeteoraDammCtx<'info> {
     ) -> Result<()> {
         let pool_authority_seeds = pool_authority_seeds!(bump);
 
-        // Send some lamport to presale to pay rent fee?
+        // Send some lamport to pool authority to pay rent fee?
         msg!("transfer lamport to pool_authority");
         invoke(
             &system_instruction::transfer(
@@ -209,16 +209,14 @@ pub fn handle_migrate_meteora_damm<'info>(
     ctx: Context<'_, '_, '_, 'info, MigrateMeteoraDammCtx<'info>>,
 ) -> Result<()> {
     ctx.accounts.validate_config_key()?;
-    let mut migration_metadata = ctx.accounts.migration_metadata.load_mut()?;
-    let migration_progress = MigrationMeteoraDammProgress::try_from(migration_metadata.progress)
-        .map_err(|_| PoolError::TypeCastFailed)?;
 
+    let mut virtual_pool = ctx.accounts.virtual_pool.load_mut()?;
     require!(
-        migration_progress == MigrationMeteoraDammProgress::Init,
+        virtual_pool.get_migration_progress()? == MigrationProgress::LockedVesting,
         PoolError::NotPermitToDoThisAction
     );
 
-    let mut virtual_pool = ctx.accounts.virtual_pool.load_mut()?;
+    let mut migration_metadata = ctx.accounts.migration_metadata.load_mut()?;
 
     let config = ctx.accounts.config.load()?;
     require!(
@@ -285,7 +283,7 @@ pub fn handle_migrate_meteora_damm<'info>(
 
     let lp_distribution = config.get_lp_distribution(lp_minted_amount)?;
     migration_metadata.set_lp_minted(ctx.accounts.lp_mint.key(), &lp_distribution);
-    migration_metadata.set_progress(MigrationMeteoraDammProgress::CreatedPool.into());
+    virtual_pool.set_migration_progress(MigrationProgress::CreatedPool.into());
 
     // TODO emit event
 

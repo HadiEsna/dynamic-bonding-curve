@@ -47,7 +47,7 @@ export async function createMeteoraMetadata(
   const { payer, virtualPool, config } = params;
   const transaction = await program.methods
     .migrationMeteoraDammCreateMetadata()
-    .accounts({
+    .accountsPartial({
       virtualPool,
       config,
       payer: payer.publicKey,
@@ -128,7 +128,7 @@ export async function migrateToMeteoraDamm(
 
   const transaction = await program.methods
     .migrateMeteoraDamm()
-    .accounts({
+    .accountsPartial({
       virtualPool,
       migrationMetadata,
       config: virtualPoolState.config,
@@ -254,8 +254,9 @@ export async function lockLpForCreatorDamm(
     true
   );
   const transaction = await program.methods
-    .migrateMeteoraDammLockLpTokenForCreator()
-    .accounts({
+    .migrateMeteoraDammLockLpToken()
+    .accountsPartial({
+      virtualPool,
       migrationMetadata,
       poolAuthority,
       pool: dammPool,
@@ -366,8 +367,9 @@ export async function lockLpForPartnerDamm(
     true
   );
   const transaction = await program.methods
-    .migrateMeteoraDammLockLpTokenForPartner()
-    .accounts({
+    .migrateMeteoraDammLockLpToken()
+    .accountsPartial({
+      virtualPool,
       migrationMetadata,
       poolAuthority,
       pool: dammPool,
@@ -440,8 +442,10 @@ export async function partnerClaimLpDamm(
     true
   );
   const transaction = await program.methods
-    .migrateMeteoraDammPartnerClaimLpToken()
-    .accounts({
+    .migrateMeteoraDammClaimLpToken()
+    .accountsPartial({
+      virtualPool,
+      owner: configState.feeClaimer,
       migrationMetadata,
       poolAuthority,
       pool: dammPool,
@@ -503,10 +507,12 @@ export async function creatorClaimLpDamm(
     true
   );
   const transaction = await program.methods
-    .migrateMeteoraDammCreatorClaimLpToken()
-    .accounts({
+    .migrateMeteoraDammClaimLpToken()
+    .accountsPartial({
+      virtualPool,
       migrationMetadata,
       poolAuthority,
+      owner: virtualPoolState.creator,
       pool: dammPool,
       lpMint,
       sourceToken,
