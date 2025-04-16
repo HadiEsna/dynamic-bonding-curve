@@ -207,7 +207,6 @@ export default function ConfigPage() {
           payer: publicKey,
         },
         {
-          padding: [],
           activationType: value.activationType,
           collectFeeMode: value.collectFeeMode,
           migrationOption: value.migrationOption,
@@ -235,6 +234,14 @@ export default function ConfigPage() {
           creatorLpPercentage: 0,
           partnerLockedLpPercentage: 50,
           partnerLpPercentage: 0,
+          padding: new BN(0),
+          lockedVesting: {
+            amountPerPeriod: new BN(0),
+            cliffDurationFromMigrationTime: new BN(0),
+            frequency: new BN(0),
+            numberOfPeriod: new BN(0),
+            cliffUnlockAmount: new BN(0),
+          },
         }
       )
 

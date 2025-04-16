@@ -1,5 +1,5 @@
 import BN from 'bn.js'
-import type { DynamicFee } from './types'
+import type { DynamicFeeConfig, PoolFeesConfig } from './types'
 
 // Constants matching Rust implementation
 export const MAX_EXPONENTIAL = 0x80000 // 1048576
@@ -170,85 +170,4 @@ export function pow(base: BN, exp: number): BN | null {
   }
 
   return result
-}
-
-/**
- * Calculate total trading fee including base and dynamic fees
- */
-export function getTotalTradingFee(
-  poolFees: any, // Update with proper type
-  currentPoint: BN,
-  activationPoint: BN
-): BN {
-  // Get base fee numerator
-  const baseFeeNumerator = getCurrentBaseFeeNumerator(
-    poolFees.baseFee,
-    currentPoint,
-    activationPoint
-  )
-
-  // Get dynamic fee (if enabled)
-  const dynamicFee = getDynamicFee(poolFees.dynamicFee)
-
-  // Add base and dynamic fees
-  const totalFeeNumerator = baseFeeNumerator.add(dynamicFee)
-
-  // Cap at MAX_FEE_NUMERATOR
-  const MAX_FEE_NUMERATOR = new BN(10000)
-  return totalFeeNumerator.gt(MAX_FEE_NUMERATOR)
-    ? MAX_FEE_NUMERATOR
-    : totalFeeNumerator
-}
-
-/**
- * Get current base fee numerator based on fee schedule
- */
-export function getCurrentBaseFeeNumerator(
-  baseFee: any, // Update with proper type
-  currentPoint: BN,
-  activationPoint: BN
-): BN {
-  if (baseFee.periodFrequency.isZero()) {
-    return baseFee.cliffFeeNumerator
-  }
-
-  const period = currentPoint.lt(activationPoint)
-    ? new BN(baseFee.numberOfPeriod)
-    : BN.min(
-        currentPoint.sub(activationPoint).div(baseFee.periodFrequency),
-        new BN(baseFee.numberOfPeriod)
-      )
-
-  // Handle fee scheduler modes
-  switch (baseFee.feeSchedulerMode) {
-    case 0: // Linear
-      return baseFee.cliffFeeNumerator.sub(period.mul(baseFee.reductionFactor))
-    case 1: // Exponential
-      return getFeeInPeriod(
-        baseFee.cliffFeeNumerator,
-        baseFee.reductionFactor,
-        period
-      )
-    default:
-      throw new Error('Invalid fee scheduler mode')
-  }
-}
-
-/**
- * Calculate dynamic fee based on volatility
- */
-export function getDynamicFee(dynamicFee: DynamicFee): BN {
-  // Update with proper type
-  if (!dynamicFee.initialized) {
-    return new BN(0)
-  }
-
-  const squareVfaBin = dynamicFee.volatilityAccumulator
-    .mul(new BN(dynamicFee.binStep))
-    .pow(new BN(2))
-
-  const vFee = squareVfaBin.mul(new BN(dynamicFee.variableFeeControl))
-
-  // Scale down to match Rust implementation
-  return vFee.add(new BN(99999999999)).div(new BN(100000000000))
 }

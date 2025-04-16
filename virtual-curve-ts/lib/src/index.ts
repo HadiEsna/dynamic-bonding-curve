@@ -25,8 +25,7 @@ import {
   type SwapAccounts,
   type MigrationDammV2CreateMetadataAccounts,
   type MigrateMeteoraDammAccounts,
-  type MigrateMeteoraDammLockLpTokenForCreatorAccounts,
-  type MigrateMeteoraDammLockLpTokenForPartnerAccounts,
+  type MigrateMeteoraDammLockLpTokenAccounts,
   type VirtualPool,
   type PoolConfig,
 } from './types'
@@ -50,7 +49,7 @@ type AccountsWithOptionalFields<T, K extends keyof T> = {
 export const FEE_DENOMINATOR = 1_000_000_000
 
 export class VirtualCurveSDK {
-  private program: VirtualCurveProgram
+  public program: VirtualCurveProgram
   private connection: Connection
   private provider: AnchorProvider
 
@@ -160,9 +159,9 @@ export class VirtualCurveSDK {
     return ix
   }
 
-  async migrateMeteoraDammLockLpTokenForCreator(
+  async migrateMeteoraDammLockLpToken(
     params: Omit<
-      MigrateMeteoraDammLockLpTokenForCreatorAccounts,
+      MigrateMeteoraDammLockLpTokenAccounts,
       'program' | 'eventAuthority'
     >
   ) {
@@ -173,27 +172,7 @@ export class VirtualCurveSDK {
     }
 
     const ix = await this.program.methods
-      .migrateMeteoraDammLockLpTokenForCreator()
-      .accounts(accounts)
-      .instruction()
-
-    return ix
-  }
-
-  async migrateMeteoraDammLockLpTokenForPartner(
-    params: Omit<
-      MigrateMeteoraDammLockLpTokenForPartnerAccounts,
-      'program' | 'eventAuthority'
-    >
-  ) {
-    const accounts = {
-      ...params,
-      eventAuthority: this.getEventAuthority(),
-      program: this.program.programId,
-    }
-
-    const ix = await this.program.methods
-      .migrateMeteoraDammLockLpTokenForPartner()
+      .migrateMeteoraDammLockLpToken()
       .accounts(accounts)
       .instruction()
 
@@ -324,12 +303,18 @@ export class VirtualCurveSDK {
     > & { user: PublicKey; swapBaseForQuote: boolean },
     swapParams: SwapParameters
   ) {
-    const inputMint = params.swapBaseForQuote
-      ? new PublicKey(params.baseMint)
-      : new PublicKey(params.quoteMint)
-    const outputMint = params.swapBaseForQuote
-      ? new PublicKey(params.quoteMint)
-      : new PublicKey(params.baseMint)
+    const [inputMint, inputTokenProgram] = params.swapBaseForQuote
+      ? [new PublicKey(params.baseMint), new PublicKey(params.tokenBaseProgram)]
+      : [
+          new PublicKey(params.quoteMint),
+          new PublicKey(params.tokenQuoteProgram),
+        ]
+    const [outputMint, outputTokenProgram] = params.swapBaseForQuote
+      ? [
+          new PublicKey(params.quoteMint),
+          new PublicKey(params.tokenQuoteProgram),
+        ]
+      : [new PublicKey(params.baseMint), new PublicKey(params.tokenBaseProgram)]
 
     const isSOLInput = inputMint.toString() === SOL_MINT.toString()
     const isSOLOutput = outputMint.toString() === SOL_MINT.toString()
@@ -337,13 +322,13 @@ export class VirtualCurveSDK {
     const inputTokenAccount = findAssociatedTokenAddress(
       params.user,
       inputMint,
-      new PublicKey(params.tokenQuoteProgram)
+      inputTokenProgram
     )
 
     const outputTokenAccount = findAssociatedTokenAddress(
       params.user,
       outputMint,
-      new PublicKey(params.tokenBaseProgram)
+      outputTokenProgram
     )
 
     const ixs = []
@@ -354,7 +339,8 @@ export class VirtualCurveSDK {
           params.user,
           inputTokenAccount,
           params.user,
-          inputMint
+          inputMint,
+          inputTokenProgram
         )
       )
       ixs.push(
@@ -381,7 +367,8 @@ export class VirtualCurveSDK {
         params.user,
         outputTokenAccount,
         params.user,
-        outputMint
+        outputMint,
+        outputTokenProgram
       )
     )
 

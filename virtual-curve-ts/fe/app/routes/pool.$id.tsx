@@ -15,7 +15,10 @@ import { toast } from 'sonner'
 import { useWallet } from '@jup-ag/wallet-adapter'
 import { useSendTransaction } from '~/hooks/useSendTransaction'
 import { Connection, Transaction, PublicKey } from '@solana/web3.js'
-import { getAssociatedTokenAddressSync } from '@solana/spl-token'
+import {
+  getAssociatedTokenAddressSync,
+  TOKEN_2022_PROGRAM_ID,
+} from '@solana/spl-token'
 
 // Props for the new SwapForm component
 interface SwapFormProps {
@@ -37,7 +40,8 @@ const TokenBalance: React.FC<{
   connection: Connection | null
   mint: PublicKey | null
   wallet: PublicKey | null
-}> = memo(({ connection, mint, wallet }) => {
+  tokenProgram: PublicKey
+}> = memo(({ connection, mint, wallet, tokenProgram }) => {
   const [balance, setBalance] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -47,13 +51,19 @@ const TokenBalance: React.FC<{
       setBalance(null)
       return
     }
+    setError(null)
 
     try {
       if (mint.equals(SOL_MINT)) {
         const account = await connection.getBalance(wallet)
         setBalance(account.toString())
       } else {
-        const ata = getAssociatedTokenAddressSync(mint, wallet)
+        const ata = getAssociatedTokenAddressSync(
+          mint,
+          wallet,
+          false,
+          tokenProgram
+        )
         const account = await connection.getTokenAccountBalance(ata)
         setBalance(account.value.amount)
       }
@@ -106,9 +116,7 @@ const TokenBalance: React.FC<{
 
   return (
     <div className="flex items-center justify-between">
-      <span className="text-gray-400 text-xs">
-        Balance: {new Intl.NumberFormat().format(Number(balance))}
-      </span>
+      <span className="text-gray-400 text-xs">Balance: {balance}</span>
       <button
         onClick={handleRefresh}
         className="text-xs text-gray-400 hover:text-white transition-colors"
@@ -282,8 +290,12 @@ const SwapForm: React.FC<SwapFormProps> = memo(
             quoteMint: config.quoteMint,
             quoteVault: pool.quoteVault,
             referralTokenAccount: null,
-            tokenBaseProgram: TOKEN_PROGRAM_ID,
-            tokenQuoteProgram: TOKEN_PROGRAM_ID,
+            tokenBaseProgram:
+              config.tokenType === 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID,
+            tokenQuoteProgram:
+              config.quoteTokenFlag === 0
+                ? TOKEN_PROGRAM_ID
+                : TOKEN_2022_PROGRAM_ID,
             swapBaseForQuote: swapBaseForQuoteFlag,
           },
           {
@@ -345,10 +357,30 @@ const SwapForm: React.FC<SwapFormProps> = memo(
       !calculationError
 
     // Determine input/output mints based on direction
-    const inputMint =
-      swapDirection === 'quoteToBase' ? config?.quoteMint : pool?.baseMint
-    const outputMint =
-      swapDirection === 'quoteToBase' ? pool?.baseMint : config?.quoteMint
+    const [inputMint, inputTokenProgram] =
+      swapDirection === 'quoteToBase'
+        ? [
+            config?.quoteMint,
+            config?.quoteTokenFlag === 1
+              ? TOKEN_2022_PROGRAM_ID
+              : TOKEN_PROGRAM_ID,
+          ]
+        : [
+            pool?.baseMint,
+            config?.tokenType === 1 ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID,
+          ]
+    const [outputMint, outputTokenProgram] =
+      swapDirection === 'quoteToBase'
+        ? [
+            pool?.baseMint,
+            config?.tokenType === 1 ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID,
+          ]
+        : [
+            config?.quoteMint,
+            config?.quoteTokenFlag === 1
+              ? TOKEN_2022_PROGRAM_ID
+              : TOKEN_PROGRAM_ID,
+          ]
 
     const handleSwapDirection = useCallback(() => {
       setSwapDirection((prev) =>
@@ -425,6 +457,7 @@ const SwapForm: React.FC<SwapFormProps> = memo(
                 connection={connection}
                 mint={inputMint || null}
                 wallet={wallet.publicKey}
+                tokenProgram={inputTokenProgram}
               />
             </div>
           </div>
@@ -451,6 +484,7 @@ const SwapForm: React.FC<SwapFormProps> = memo(
                 connection={connection}
                 mint={outputMint || null}
                 wallet={wallet.publicKey}
+                tokenProgram={outputTokenProgram}
               />
             </div>
           </div>

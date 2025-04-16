@@ -44,30 +44,27 @@ export type CreateConfigAccounts = Accounts<
 //   tokenProgram: Address;
 //   tokenQuoteProgram: Address;
 // }
-export type CreatorClaimLpFromMeteoraDynamicAmmAccounts = Accounts<
-  IDL['instructions']['5']
->['creatorClaimLpFromMeteoraDynamicAmm']
-export type InitializeVirtualPoolWithSplTokenAccounts = Accounts<
+export type CreatePartnerMetadataAccounts = Accounts<
   IDL['instructions']['6']
+>['createPartnerMetadata']
+export type CreateVirtualPoolMetadataAccounts = Accounts<
+  IDL['instructions']['7']
+>['createVirtualPoolMetadata']
+export type InitializeVirtualPoolWithSplTokenAccounts = Accounts<
+  IDL['instructions']['8']
 >['initializeVirtualPoolWithSplToken']
 export type InitializeVirtualPoolWithToken2022Accounts = Accounts<
-  IDL['instructions']['7']
+  IDL['instructions']['9']
 >['initializeVirtualPoolWithToken2022']
 export type MigrateMeteoraDammAccounts = Accounts<
-  IDL['instructions']['8']
->['migrateMeteoraDamm']
-export type MigrateMeteoraDammCreatorClaimLpTokenAccounts = Accounts<
-  IDL['instructions']['9']
->['migrateMeteoraDammCreatorClaimLpToken']
-export type MigrateMeteoraDammLockLpTokenForCreatorAccounts = Accounts<
   IDL['instructions']['10']
->['migrateMeteoraDammLockLpTokenForCreator']
-export type MigrateMeteoraDammLockLpTokenForPartnerAccounts = Accounts<
+>['migrateMeteoraDamm']
+export type MigrateMeteoraDammClaimLpTokenAccounts = Accounts<
   IDL['instructions']['11']
->['migrateMeteoraDammLockLpTokenForPartner']
-export type MigrateMeteoraDammPartnerClaimLpTokenAccounts = Accounts<
+>['migrateMeteoraDammClaimLpToken']
+export type MigrateMeteoraDammLockLpTokenAccounts = Accounts<
   IDL['instructions']['12']
->['migrateMeteoraDammPartnerClaimLpToken']
+>['migrateMeteoraDammLockLpToken']
 export type MigrationDammV2Accounts = Accounts<
   IDL['instructions']['13']
 >['migrationDammV2']
@@ -92,7 +89,7 @@ export type MigrationDammV2CreateMetadataAccounts = Accounts<
 //   tokenBaseProgram: Address;
 //   referralTokenAccount: Address | null;
 // }
-export type SwapAccounts = Accounts<IDL['instructions']['19']>['swap']
+export type SwapAccounts = Accounts<IDL['instructions']['18']>['swap']
 
 // types
 export type InitializePoolParameters = IdlTypes<IDL>['initializePoolParameters']
