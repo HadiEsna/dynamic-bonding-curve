@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+
+@custom-variant dark (&:is(.dark *));
+
+
 /* Custom animations */
 @keyframes fadeIn {
   from {

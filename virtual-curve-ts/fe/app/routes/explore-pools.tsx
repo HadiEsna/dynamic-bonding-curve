@@ -183,7 +183,7 @@ export default function ExplorePools() {
                     <span
                       className={`absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full text-xs font-medium`}
                     >
-                      {pool.account.poolType}
+                      {pool.account.poolType === 0 ? 'SPL-Token' : 'Token2022'}
                     </span>
                   </div>
 

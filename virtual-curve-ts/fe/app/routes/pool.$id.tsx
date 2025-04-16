@@ -567,7 +567,7 @@ export default function PoolDetailsPage() {
 
   // --- Success State (Render Page) ---
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto p-4 h-dvh">
       <h1 className="text-2xl font-bold mb-4 text-white">Pool Details</h1>
       <p className="mb-2 text-gray-300">
         <span className="font-semibold">Pool ID:</span> {params.id}
@@ -579,7 +579,7 @@ export default function PoolDetailsPage() {
           {/* Display Pool Type (SPL / Token2022) */}
           {pool.poolType !== undefined && (
             <span
-              className={`absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full text-xs font-medium bg-black/30`}
+              className={`absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full text-xs font-medium bg-black/30 text-white`}
             >
               {pool.poolType === 0 ? 'SPL-Token' : 'Token2022'}
             </span>
@@ -625,7 +625,15 @@ export default function PoolDetailsPage() {
                 Total Trading Fee (Base) {/* Check actual fee units/token */}
               </p>
               <p className="font-medium">
-                {pool.metrics?.totalTradingBaseFee?.toString() ?? 'N/A'}
+                {pool.metrics?.totalProtocolBaseFee?.toString() ?? 'N/A'}
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-400 text-xs">
+                Total Trading Fee (Quote) {/* Check actual fee units/token */}
+              </p>
+              <p className="font-medium">
+                {pool.metrics?.totalTradingQuoteFee?.toString() ?? 'N/A'}
               </p>
             </div>
             <div>
