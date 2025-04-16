@@ -4,10 +4,9 @@ use anchor_spl::token::{
 };
 
 use crate::{
-    activation_handler::get_current_point,
     constants::seeds::POOL_AUTHORITY_PREFIX,
     safe_math::SafeMath,
-    state::{MigrationOption, PoolConfig, VirtualPool},
+    state::{MigrationOption, MigrationProgress, PoolConfig, VirtualPool},
     *,
 };
 
@@ -126,10 +125,6 @@ impl<'info> MigrateMeteoraDammCtx<'info> {
             PoolError::InvalidConfigAccount
         );
         require!(
-            self.damm_config.activation_type == self.config.load()?.activation_type,
-            PoolError::InvalidConfigAccount
-        );
-        require!(
             self.damm_config.activation_duration == 0,
             PoolError::InvalidConfigAccount
         );
@@ -148,12 +143,11 @@ impl<'info> MigrateMeteoraDammCtx<'info> {
         &self,
         initial_base_amount: u64,
         initial_quote_amount: u64,
-        activation_point: Option<u64>,
         bump: u8,
     ) -> Result<()> {
         let pool_authority_seeds = pool_authority_seeds!(bump);
 
-        // Send some lamport to presale to pay rent fee?
+        // Send some lamport to pool authority to pay rent fee?
         msg!("transfer lamport to pool_authority");
         invoke(
             &system_instruction::transfer(
@@ -168,7 +162,6 @@ impl<'info> MigrateMeteoraDammCtx<'info> {
             ],
         )?;
         // Vault authority create pool
-        msg!("Activation point: {:?}", activation_point);
         msg!("create pool");
         dynamic_amm::cpi::initialize_permissionless_constant_product_pool_with_config2(
             CpiContext::new_with_signer(
@@ -205,7 +198,7 @@ impl<'info> MigrateMeteoraDammCtx<'info> {
             ),
             initial_base_amount,
             initial_quote_amount,
-            activation_point,
+            None,
         )?;
 
         Ok(())
@@ -216,16 +209,14 @@ pub fn handle_migrate_meteora_damm<'info>(
     ctx: Context<'_, '_, '_, 'info, MigrateMeteoraDammCtx<'info>>,
 ) -> Result<()> {
     ctx.accounts.validate_config_key()?;
-    let mut migration_metadata = ctx.accounts.migration_metadata.load_mut()?;
-    let migration_progress = MigrationMeteoraDammProgress::try_from(migration_metadata.progress)
-        .map_err(|_| PoolError::TypeCastFailed)?;
 
+    let mut virtual_pool = ctx.accounts.virtual_pool.load_mut()?;
     require!(
-        migration_progress == MigrationMeteoraDammProgress::Init,
+        virtual_pool.get_migration_progress()? == MigrationProgress::LockedVesting,
         PoolError::NotPermitToDoThisAction
     );
 
-    let mut virtual_pool = ctx.accounts.virtual_pool.load_mut()?;
+    let mut migration_metadata = ctx.accounts.migration_metadata.load_mut()?;
 
     let config = ctx.accounts.config.load()?;
     require!(
@@ -242,12 +233,8 @@ pub fn handle_migrate_meteora_damm<'info>(
     let base_reserve = config.migration_base_threshold;
     let quote_reserve = config.migration_quote_threshold;
 
-    ctx.accounts.create_pool(
-        base_reserve,
-        quote_reserve,
-        Some(get_current_point(config.activation_type)?),
-        ctx.bumps.pool_authority,
-    )?;
+    ctx.accounts
+        .create_pool(base_reserve, quote_reserve, ctx.bumps.pool_authority)?;
 
     virtual_pool.update_after_create_pool();
 
@@ -296,7 +283,7 @@ pub fn handle_migrate_meteora_damm<'info>(
 
     let lp_distribution = config.get_lp_distribution(lp_minted_amount)?;
     migration_metadata.set_lp_minted(ctx.accounts.lp_mint.key(), &lp_distribution);
-    migration_metadata.set_progress(MigrationMeteoraDammProgress::CreatedPool.into());
+    virtual_pool.set_migration_progress(MigrationProgress::CreatedPool.into());
 
     // TODO emit event
 

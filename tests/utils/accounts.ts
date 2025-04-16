@@ -44,6 +44,32 @@ export function derivePoolAuthority(): PublicKey {
   )[0];
 }
 
+
+export function deriveBaseKeyForLocker(virtualPool: PublicKey): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("base_locker"), virtualPool.toBuffer()],
+    VIRTUAL_CURVE_PROGRAM_ID
+  )[0];
+}
+
+
+export function derivePartnerMetadata(feeClaimer: PublicKey): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("partner_metadata"), feeClaimer.toBuffer()],
+    VIRTUAL_CURVE_PROGRAM_ID
+  )[0];
+}
+
+
+
+export function deriveVirtualPoolMetadata(pool: PublicKey): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("virtual_pool_metadata"), pool.toBuffer()],
+    VIRTUAL_CURVE_PROGRAM_ID
+  )[0];
+}
+
+
 export function deriveConfigAddress(index: BN): PublicKey {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("config"), index.toArrayLike(Buffer, "le", 8)],

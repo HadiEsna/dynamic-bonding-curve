@@ -3,9 +3,11 @@ import { BanksClient } from "solana-bankrun";
 import {
   ClaimFeeOperator,
   MeteoraDammMigrationMetadata,
+  PartnerMetadata,
   Pool,
   PoolConfig,
   VirtualCurveProgram,
+  VirtualPoolMetadata,
 } from "./types";
 
 export async function getVirtualPool(
@@ -28,6 +30,26 @@ export async function getConfig(
   const account = await banksClient.getAccount(config);
   return program.coder.accounts.decode("poolConfig", Buffer.from(account.data));
 }
+
+export async function getPartnerMetadata(
+  banksClient: BanksClient,
+  program: VirtualCurveProgram,
+  partnerMetadata: PublicKey
+): Promise<PartnerMetadata> {
+  const account = await banksClient.getAccount(partnerMetadata);
+  return program.coder.accounts.decode("partnerMetadata", Buffer.from(account.data));
+}
+
+
+export async function getVirtualPoolMetadata(
+  banksClient: BanksClient,
+  program: VirtualCurveProgram,
+  virtualPoolMetadata: PublicKey
+): Promise<VirtualPoolMetadata> {
+  const account = await banksClient.getAccount(virtualPoolMetadata);
+  return program.coder.accounts.decode("virtualPoolMetadata", Buffer.from(account.data));
+}
+
 
 export async function getClaimFeeOperator(
   banksClient: BanksClient,

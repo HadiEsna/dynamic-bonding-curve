@@ -8,11 +8,10 @@ use anchor_spl::{
 use damm_v2::types::{AddLiquidityParameters, InitializePoolParameters};
 
 use crate::{
-    activation_handler::get_current_point,
     constants::{seeds::POOL_AUTHORITY_PREFIX, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
-    curve::get_initial_liquidity_from_delta_quote,
+    curve::{get_initial_liquidity_from_delta_base, get_initial_liquidity_from_delta_quote},
     safe_math::SafeMath,
-    state::{MigrationOption, PoolConfig, VirtualPool},
+    state::{LiquidityDistribution, MigrationOption, MigrationProgress, PoolConfig, VirtualPool},
     *,
 };
 
@@ -23,7 +22,7 @@ pub struct MigrateDammV2Ctx<'info> {
     pub virtual_pool: AccountLoader<'info, VirtualPool>,
 
     /// migration metadata
-    #[account(mut, has_one = virtual_pool)]
+    #[account(has_one = virtual_pool)]
     pub migration_metadata: AccountLoader<'info, MeteoraDammV2Metadata>,
 
     /// virtual pool config key
@@ -124,10 +123,6 @@ impl<'info> MigrateDammV2Ctx<'info> {
             PoolError::InvalidConfigAccount
         );
         require!(
-            damm_config.activation_type == self.config.load()?.activation_type,
-            PoolError::InvalidConfigAccount
-        );
-        require!(
             damm_config.pool_fees.partner_fee_percent == 0,
             PoolError::InvalidConfigAccount
         );
@@ -154,12 +149,11 @@ impl<'info> MigrateDammV2Ctx<'info> {
         pool_config: AccountInfo<'info>,
         liquidity: u128,
         sqrt_price: u128,
-        activation_point: Option<u64>,
         bump: u8,
     ) -> Result<()> {
         let pool_authority_seeds = pool_authority_seeds!(bump);
 
-        // Send some lamport to presale to pay rent fee?
+        // Send some lamport to pool authority to pay rent fee?
         msg!("transfer lamport to pool_authority");
         invoke(
             &system_instruction::transfer(
@@ -204,7 +198,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
             InitializePoolParameters {
                 liquidity,
                 sqrt_price,
-                activation_point,
+                activation_point: None,
             },
         )?;
 
@@ -379,16 +373,14 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         ctx.accounts.validate_config_key(&damm_config)?;
     }
 
-    let mut migration_metadata = ctx.accounts.migration_metadata.load_mut()?;
-    let migration_progress = MeteoraDammV2MetadataProgress::try_from(migration_metadata.progress)
-        .map_err(|_| PoolError::TypeCastFailed)?;
+    let mut virtual_pool = ctx.accounts.virtual_pool.load_mut()?;
 
     require!(
-        migration_progress == MeteoraDammV2MetadataProgress::Init,
+        virtual_pool.get_migration_progress()? == MigrationProgress::LockedVesting,
         PoolError::NotPermitToDoThisAction
     );
 
-    let mut virtual_pool = ctx.accounts.virtual_pool.load_mut()?;
+    let migration_metadata = ctx.accounts.migration_metadata.load()?;
 
     let config = ctx.accounts.config.load()?;
     require!(
@@ -402,97 +394,99 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         migration_option == MigrationOption::DammV2,
         PoolError::InvalidMigrationOption
     );
-    let migration_sqrt_price = config.migration_sqrt_price;
-    let quote_reserve = config.migration_quote_threshold;
+    let initial_quote_vault_amount = ctx.accounts.quote_vault.amount;
+    let initial_base_vault_amount = ctx.accounts.base_vault.amount;
 
-    // calculate liquidity
-    let liquidity = get_initial_liquidity_from_delta_quote(
-        quote_reserve,
-        MIN_SQRT_PRICE,
+    let protocol_and_partner_base_fee = virtual_pool.get_protocol_and_partner_base_fee()?;
+    let migration_sqrt_price = config.migration_sqrt_price;
+    let quote_threshold = config.migration_quote_threshold;
+    let excluded_fee_base_reserve =
+        initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?;
+
+    // calculate initial liquidity
+    let initial_liquidity = get_liquidity_for_adding_liquidity(
+        excluded_fee_base_reserve,
+        quote_threshold,
         migration_sqrt_price,
     )?;
 
-    let liquidity_distribution = config.get_liquidity_distribution(liquidity)?;
+    let LiquidityDistribution {
+        partner: partner_liquidity_distribution,
+        creator: creator_liquidity_distribution,
+    } = config.get_liquidity_distribution(initial_liquidity)?;
 
-    let partner_liquidity = liquidity_distribution
-        .partner_locked_lp
-        .safe_add(liquidity_distribution.partner_lp)?;
-    let creator_liquidity = liquidity_distribution
-        .creator_lp
-        .safe_add(liquidity_distribution.creator_locked_lp)?;
-
-    if partner_liquidity > creator_liquidity {
-        // create pool
-        msg!("create pool");
-        ctx.accounts.create_pool(
-            ctx.remaining_accounts[0].clone(),
-            partner_liquidity,
-            config.migration_sqrt_price,
-            Some(get_current_point(config.activation_type)?),
-            ctx.bumps.pool_authority,
-        )?;
-
-        // lock permanent liquidity
-        if liquidity_distribution.partner_locked_lp > 0 {
-            msg!("lock permanent liquidity for partner");
-            ctx.accounts.lock_permanent_liquidity_for_first_position(
-                liquidity_distribution.partner_locked_lp,
-                ctx.bumps.pool_authority,
-            )?;
-        }
-
-        // transfer to partner
-        msg!("set position account nft to partner");
-        ctx.accounts.set_authority_for_first_position(
+    let (
+        first_position_liquidity_distribution,
+        second_position_liquidity_distribution,
+        first_position_owner,
+        second_position_owner,
+    ) = if partner_liquidity_distribution.get_total_liquidity()?
+        > creator_liquidity_distribution.get_total_liquidity()?
+    {
+        (
+            partner_liquidity_distribution,
+            creator_liquidity_distribution,
             migration_metadata.partner,
-            ctx.bumps.pool_authority,
-        )?;
-
-        if creator_liquidity > 0 {
-            msg!("create a new position for creator");
-            ctx.accounts.create_second_position(
-                migration_metadata.pool_creator,
-                liquidity_distribution.creator_lp,
-                liquidity_distribution.creator_locked_lp,
-                ctx.bumps.pool_authority,
-            )?;
-        }
-    } else {
-        // create pool
-        msg!("create pool");
-        ctx.accounts.create_pool(
-            ctx.remaining_accounts[0].clone(),
-            creator_liquidity,
-            config.migration_sqrt_price,
-            Some(get_current_point(config.activation_type)?),
-            ctx.bumps.pool_authority,
-        )?;
-
-        // lock permanent liquidity
-        if liquidity_distribution.creator_locked_lp > 0 {
-            msg!("lock permanent liquidity for creator");
-            ctx.accounts.lock_permanent_liquidity_for_first_position(
-                liquidity_distribution.creator_locked_lp,
-                ctx.bumps.pool_authority,
-            )?;
-        }
-
-        // transfer to partner
-        msg!("set position account nft to creator");
-        ctx.accounts.set_authority_for_first_position(
             migration_metadata.pool_creator,
+        )
+    } else {
+        (
+            creator_liquidity_distribution,
+            partner_liquidity_distribution,
+            migration_metadata.pool_creator,
+            migration_metadata.partner,
+        )
+    };
+
+    // create pool
+    msg!("create pool");
+    ctx.accounts.create_pool(
+        ctx.remaining_accounts[0].clone(),
+        first_position_liquidity_distribution.get_total_liquidity()?,
+        config.migration_sqrt_price,
+        ctx.bumps.pool_authority,
+    )?;
+    // lock permanent liquidity
+    if first_position_liquidity_distribution.locked_liquidity > 0 {
+        msg!("lock permanent liquidity for first position");
+        ctx.accounts.lock_permanent_liquidity_for_first_position(
+            first_position_liquidity_distribution.locked_liquidity,
             ctx.bumps.pool_authority,
         )?;
+    }
 
-        if partner_liquidity > 0 {
-            msg!("create a new position for partner");
-            ctx.accounts.create_second_position(
-                migration_metadata.partner,
-                liquidity_distribution.partner_lp,
-                liquidity_distribution.partner_locked_lp,
-                ctx.bumps.pool_authority,
-            )?;
-        }
+    msg!("transfer ownership of the first position");
+    ctx.accounts
+        .set_authority_for_first_position(first_position_owner, ctx.bumps.pool_authority)?;
+
+    // reload quote reserve and base reserve
+    ctx.accounts.quote_vault.reload()?;
+    ctx.accounts.base_vault.reload()?;
+    let deposited_base_amount =
+        initial_base_vault_amount.safe_sub(ctx.accounts.base_vault.amount)?;
+    let deposited_quote_amount =
+        initial_quote_vault_amount.safe_sub(ctx.accounts.quote_vault.amount)?;
+
+    let updated_excluded_fee_base_reserve =
+        excluded_fee_base_reserve.safe_sub(deposited_base_amount)?;
+    let updated_quote_threshold = quote_threshold.safe_sub(deposited_quote_amount)?;
+    let liquidity_for_second_position = get_liquidity_for_adding_liquidity(
+        updated_excluded_fee_base_reserve,
+        updated_quote_threshold,
+        migration_sqrt_price,
+    )?;
+
+    if liquidity_for_second_position > 0 {
+        msg!("create second position");
+        let unlocked_lp = liquidity_for_second_position
+            .min(second_position_liquidity_distribution.unlocked_liquidity);
+        let locked_lp = liquidity_for_second_position.safe_sub(unlocked_lp)?;
+        ctx.accounts.create_second_position(
+            second_position_owner,
+            unlocked_lp,
+            locked_lp,
+            ctx.bumps.pool_authority,
+        )?;
     }
 
     virtual_pool.update_after_create_pool();
@@ -503,7 +497,7 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         .accounts
         .base_vault
         .amount
-        .safe_sub(virtual_pool.get_protocol_and_partner_base_fee()?)?;
+        .safe_sub(protocol_and_partner_base_fee)?;
 
     if left_base_token > 0 {
         let seeds = pool_authority_seeds!(ctx.bumps.pool_authority);
@@ -538,9 +532,21 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         )?;
     }
 
-    migration_metadata.set_progress(MigrationMeteoraDammProgress::CreatedPool.into());
+    virtual_pool.set_migration_progress(MigrationProgress::CreatedPool.into());
 
     // TODO emit event
 
     Ok(())
+}
+
+fn get_liquidity_for_adding_liquidity(
+    base_amount: u64,
+    quote_amount: u64,
+    sqrt_price: u128,
+) -> Result<u128> {
+    let liquidity_from_base =
+        get_initial_liquidity_from_delta_base(base_amount, MAX_SQRT_PRICE, sqrt_price)?;
+    let liquidity_from_quote =
+        get_initial_liquidity_from_delta_quote(quote_amount, MIN_SQRT_PRICE, sqrt_price)?;
+    Ok(liquidity_from_base.min(liquidity_from_quote))
 }

@@ -14,7 +14,7 @@ use crate::{
     safe_math::SafeMath,
     u128x128_math::Rounding,
     utils_math::{safe_mul_div_cast_u128, safe_mul_div_cast_u64},
-    PoolError,
+    LockedVestingParams, PoolError,
 };
 
 use super::fee::{FeeOnAmountResult, VolatilityTracker};
@@ -239,6 +239,31 @@ impl DynamicFeeConfig {
     }
 }
 
+#[zero_copy]
+#[derive(Debug, InitSpace, Default)]
+pub struct LockedVestingConfig {
+    pub amount_per_period: u64,
+    pub cliff_duration_from_migration_time: u64,
+    pub frequency: u64,
+    pub number_of_period: u64,
+    pub cliff_unlock_amount: u64,
+    pub _padding: u64,
+}
+
+const_assert_eq!(LockedVestingConfig::INIT_SPACE, 48);
+
+impl LockedVestingConfig {
+    pub fn to_locked_vesting_params(&self) -> LockedVestingParams {
+        LockedVestingParams {
+            amount_per_period: self.amount_per_period,
+            cliff_duration_from_migration_time: self.cliff_duration_from_migration_time,
+            frequency: self.frequency,
+            number_of_period: self.number_of_period,
+            cliff_unlock_amount: self.cliff_unlock_amount,
+        }
+    }
+}
+
 #[repr(u8)]
 #[derive(
     Clone,
@@ -316,8 +341,10 @@ pub struct PoolConfig {
     pub migration_base_threshold: u64,
     /// migration sqrt price
     pub migration_sqrt_price: u128,
+    /// locked vesting config
+    pub locked_vesting_config: LockedVestingConfig,
     /// padding 2
-    pub _padding_2: [u128; 6],
+    pub _padding_2: [u128; 3],
     /// minimum price
     pub sqrt_start_price: u128,
     /// curve, only use 20 point firstly, we can extend that latter
@@ -352,6 +379,7 @@ impl PoolConfig {
         partner_lp_percentage: u8,
         creator_locked_lp_percentage: u8,
         creator_lp_percentage: u8,
+        locked_vesting_params: &LockedVestingParams,
         swap_base_amount: u64,
         migration_quote_threshold: u64,
         migration_base_threshold: u64,
@@ -381,6 +409,8 @@ impl PoolConfig {
 
         self.creator_lp_percentage = creator_lp_percentage;
         self.creator_locked_lp_percentage = creator_locked_lp_percentage;
+
+        self.locked_vesting_config = locked_vesting_params.to_locked_vesting_config();
 
         let curve_length = curve.len();
         for i in 0..MAX_CURVE_POINT {
@@ -420,7 +450,7 @@ impl PoolConfig {
         Ok(u64::try_from(total_amount).map_err(|_| PoolError::MathOverflow)?)
     }
 
-    pub fn get_lp_distribution(&self, lp_amount: u64) -> Result<LpDistribution> {
+    pub fn get_lp_distribution(&self, lp_amount: u64) -> Result<LiquidityDistributionU64> {
         let partner_locked_lp = safe_mul_div_cast_u64(
             lp_amount,
             self.partner_locked_lp_percentage.into(),
@@ -444,7 +474,7 @@ impl PoolConfig {
             .safe_sub(partner_locked_lp)?
             .safe_sub(partner_lp)?
             .safe_sub(creator_locked_lp)?;
-        Ok(LpDistribution {
+        Ok(LiquidityDistributionU64 {
             partner_locked_lp,
             partner_lp,
             creator_locked_lp,
@@ -464,15 +494,19 @@ impl PoolConfig {
             .safe_sub(partner_lp)?
             .safe_sub(creator_locked_lp)?;
         Ok(LiquidityDistribution {
-            partner_locked_lp,
-            partner_lp,
-            creator_locked_lp,
-            creator_lp,
+            partner: LiquidityDistributionItem {
+                unlocked_liquidity: partner_lp,
+                locked_liquidity: partner_locked_lp,
+            },
+            creator: LiquidityDistributionItem {
+                unlocked_liquidity: creator_lp,
+                locked_liquidity: creator_locked_lp,
+            },
         })
     }
 }
 
-pub struct LpDistribution {
+pub struct LiquidityDistributionU64 {
     pub partner_locked_lp: u64,
     pub partner_lp: u64,
     pub creator_locked_lp: u64,
@@ -480,8 +514,17 @@ pub struct LpDistribution {
 }
 
 pub struct LiquidityDistribution {
-    pub partner_locked_lp: u128,
-    pub partner_lp: u128,
-    pub creator_locked_lp: u128,
-    pub creator_lp: u128,
+    pub partner: LiquidityDistributionItem,
+    pub creator: LiquidityDistributionItem,
+}
+
+pub struct LiquidityDistributionItem {
+    pub unlocked_liquidity: u128,
+    pub locked_liquidity: u128,
+}
+
+impl LiquidityDistributionItem {
+    pub fn get_total_liquidity(&self) -> Result<u128> {
+        Ok(self.unlocked_liquidity.safe_add(self.locked_liquidity)?)
+    }
 }

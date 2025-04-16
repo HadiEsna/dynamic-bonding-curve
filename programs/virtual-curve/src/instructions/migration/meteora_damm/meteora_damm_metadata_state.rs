@@ -1,24 +1,6 @@
+use crate::state::LiquidityDistributionU64;
 use anchor_lang::prelude::*;
-use num_enum::{IntoPrimitive, TryFromPrimitive};
 use static_assertions::const_assert_eq;
-
-use crate::state::LpDistribution;
-
-#[repr(u8)]
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    IntoPrimitive,
-    TryFromPrimitive,
-    AnchorDeserialize,
-    AnchorSerialize,
-)]
-pub enum MigrationMeteoraDammProgress {
-    Init,
-    CreatedPool,
-}
 
 #[account(zero_copy)]
 #[derive(InitSpace, Debug)]
@@ -40,8 +22,8 @@ pub struct MeteoraDammMigrationMetadata {
     pub creator_locked_lp: u64,
     /// creator lp
     pub creator_lp: u64,
-    /// progress
-    pub progress: u8,
+    /// padding
+    pub _padding_0: u8,
     /// flag to check whether lp is locked for creator
     pub creator_locked_status: u8,
     /// flag to check whether lp is locked for partner
@@ -56,13 +38,9 @@ pub struct MeteoraDammMigrationMetadata {
 const_assert_eq!(MeteoraDammMigrationMetadata::INIT_SPACE, 272);
 
 impl MeteoraDammMigrationMetadata {
-    pub fn set_progress(&mut self, progress: u8) {
-        self.progress = progress;
-    }
-
-    pub fn set_lp_minted(&mut self, lp_mint: Pubkey, lp_distribution: &LpDistribution) {
+    pub fn set_lp_minted(&mut self, lp_mint: Pubkey, lp_distribution: &LiquidityDistributionU64) {
         self.lp_mint = lp_mint;
-        let &LpDistribution {
+        let &LiquidityDistributionU64 {
             partner_locked_lp,
             partner_lp,
             creator_locked_lp,

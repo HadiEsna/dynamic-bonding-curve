@@ -1,4 +1,4 @@
-import { Keypair, PublicKey, TransactionInstruction } from "@solana/web3.js";
+import { Keypair, PublicKey, SystemProgram, TransactionInstruction } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
 import { VirtualCurveProgram } from "../utils/types";
 import { BanksClient } from "solana-bankrun";
@@ -8,9 +8,9 @@ import {
   getOrCreateAssociatedTokenAccount,
   unwrapSOLInstruction,
   getTokenAccount,
-  deriveMigrationMetadataAddress,
+  derivePartnerMetadata,
 } from "../utils";
-import { getConfig, getVirtualPool } from "../utils/fetcher";
+import { getConfig, getPartnerMetadata, getVirtualPool } from "../utils/fetcher";
 import { expect } from "chai";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
@@ -31,6 +31,14 @@ export type DynamicFee = {
   maxVolatilityAccumulator: number;
   variableFeeControl: number;
 };
+
+export type LockedVestingParams = {
+  amountPerPeriod: BN;
+  cliffDurationFromMigrationTime: BN;
+  frequency: BN;
+  numberOfPeriod: BN;
+  cliffUnlockAmount: BN;
+}
 
 export type LiquidityDistributionParameters = {
   sqrtPrice: BN;
@@ -53,7 +61,8 @@ export type ConfigParameters = {
   creatorLpPercentage: number;
   creatorLockedLpPercentage: number;
   sqrtStartPrice: BN;
-  padding: [];
+  lockedVesting: LockedVestingParams;
+  padding: BN;
   curve: Array<LiquidityDistributionParameters>;
 };
 
@@ -98,6 +107,47 @@ export async function createConfig(
   expect(configState.creatorLockedLpPercentage).equal(instructionParams.creatorLockedLpPercentage);
 
   return config.publicKey;
+}
+
+export async function createPartnerMetadata(
+  banksClient: BanksClient,
+  program: VirtualCurveProgram,
+  params: {
+    name: string,
+    website: string,
+    logo: string,
+    feeClaimer: Keypair,
+    payer: Keypair
+
+  }
+) {
+  const { payer, feeClaimer, name, website, logo } = params;
+  const partnerMetadata = derivePartnerMetadata(feeClaimer.publicKey);
+  const transaction = await program.methods
+    .createPartnerMetadata({
+      padding: new Array(96).fill(0),
+      name,
+      website,
+      logo,
+    })
+    .accountsPartial({
+      partnerMetadata,
+      feeClaimer: feeClaimer.publicKey,
+      payer: payer.publicKey,
+      systemProgram: SystemProgram.programId,
+    })
+    .transaction();
+
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(payer, feeClaimer);
+
+  await processTransactionMaybeThrow(banksClient, transaction);
+  //
+  const metadataState = await getPartnerMetadata(banksClient, program, partnerMetadata);
+  expect(metadataState.feeClaimer.toString()).equal(feeClaimer.publicKey.toString());
+  expect(metadataState.name.toString()).equal(name.toString());
+  expect(metadataState.website.toString()).equal(website.toString());
+  expect(metadataState.logo.toString()).equal(logo.toString());
 }
 
 export type ClaimTradeFeeParams = {
@@ -156,7 +206,7 @@ export async function claimTradingFee(
   unrapSOLIx && postInstructions.push(unrapSOLIx);
   const transaction = await program.methods
     .claimTradingFee(maxBaseAmount, maxQuoteAmount)
-    .accounts({
+    .accountsPartial({
       poolAuthority,
       config: poolState.config,
       pool,
@@ -215,7 +265,7 @@ export async function partnerWithdrawSurplus(
   unrapSOLIx && postInstructions.push(unrapSOLIx);
   const transaction = await program.methods
     .partnerWithdrawSurplus()
-    .accounts({
+    .accountsPartial({
       poolAuthority,
       config: poolState.config,
       virtualPool,

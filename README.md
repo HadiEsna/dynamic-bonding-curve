@@ -43,6 +43,7 @@ Partner can specify these parameters when they create a configuration on all the
 - `fee_claimer`: the address of partner that can claim trading fees from the virtual pools as well as fees from the locked LPs.
 - `owner`: owner of the configuration.
 - `quote_mint`: the quote mint address that virtual pool will support.
+- `locked_vesting`: locked vesting for creator after token is migrated (token will be migrated to [Jup lock](https://lock.jup.ag/))
 - `sqrt_start_price`: square root of min price in the bonding curve for the virtual pools.
 - `curve`: an array of square price and liquidity, that defines the liquidity distribution for the virtual pools.
 
@@ -88,7 +89,18 @@ pnpm install
 pnpm test
 ```
 
-## Program Address
+### Program Address
 
 - Mainnet-beta: virEFLZsQm1iFAs8py1XnziJ67gTzW2bfCWhxNPfccD
 - Devnet: virEFLZsQm1iFAs8py1XnziJ67gTzW2bfCWhxNPfccD
+
+
+### Config key for migration 
+
+#### Mainnet-beta
+- Meteora damm (v1): BG9eoMRXUCYZqLB2xyQxDqErXMcqc3JzaEVTJGKpiNH9
+- Damm v2: GGN4mTXqz59uBt5TXkERBJUKiNTsAVfZekDapDPLe5iZ
+
+#### Devnet
+- Meteora damm (v1): GnfMQ8oPzq84oK4PxTjhC1aUEMrLLasDfF9LsmW46U7j
+- Damm v2: GGN4mTXqz59uBt5TXkERBJUKiNTsAVfZekDapDPLe5iZ
