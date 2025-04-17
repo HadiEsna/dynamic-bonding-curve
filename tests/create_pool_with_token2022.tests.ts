@@ -109,7 +109,8 @@ describe("Create pool with token2022", () => {
                 numberOfPeriod: new BN(0),
                 cliffUnlockAmount: new BN(0),
             },
-            padding: new BN(0),
+            migrationFeeOption: 0,
+            padding: [0, 0, 0, 0, 0, 0, 0],
             curve: curves,
         };
         const params: CreateConfigParams = {
@@ -159,6 +160,7 @@ describe("Create pool with token2022", () => {
             await getMint(context.banksClient, virtualPoolState.baseMint)
         );
         expect(baseMintData.freezeAuthority.toString()).eq(PublicKey.default.toString())
+        expect(baseMintData.mintAuthorityOption).eq(0)
     });
 
     it("Swap", async () => {

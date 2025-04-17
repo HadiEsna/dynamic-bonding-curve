@@ -99,7 +99,8 @@ describe("Create locker", () => {
                     numberOfPeriod: new BN(10),
                     cliffUnlockAmount: new BN(1_000_000_000),
                 },
-                padding: new BN(0),
+                migrationFeeOption: 0,
+                padding: [0, 0, 0, 0, 0, 0, 0],
                 curve: curves,
             };
             const params: CreateConfigParams = {
@@ -174,12 +175,6 @@ describe("Create locker", () => {
             };
 
             await migrateToDammV2(context.banksClient, program, migrationParams);
-
-            // validate mint authority
-            const baseMintData = (
-                await getMint(context.banksClient, virtualPoolState.baseMint)
-            );
-            expect(baseMintData.mintAuthority.toString()).eq(PublicKey.default.toString())
         });
     })
 
@@ -254,7 +249,8 @@ describe("Create locker", () => {
                     numberOfPeriod: new BN(10),
                     cliffUnlockAmount: new BN(1_000_000_000),
                 },
-                padding: new BN(0),
+                migrationFeeOption: 0,
+                padding: [0, 0, 0, 0, 0, 0, 0],
                 curve: curves,
             };
             const params: CreateConfigParams = {
@@ -329,12 +325,6 @@ describe("Create locker", () => {
             };
 
             await migrateToDammV2(context.banksClient, program, migrationParams);
-
-            // validate mint authority
-            const baseMintData = (
-                await getMint(context.banksClient, virtualPoolState.baseMint)
-            );
-            expect(baseMintData.mintAuthority.toString()).eq(PublicKey.default.toString())
         });
     })
 

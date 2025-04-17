@@ -1,12 +1,11 @@
 use anchor_lang::solana_program::{program::invoke, system_instruction};
-use anchor_spl::token::{
-    spl_token::instruction::AuthorityType, Burn, SetAuthority, Token, TokenAccount,
-};
+use anchor_spl::token::{Burn, Token, TokenAccount};
 
 use crate::{
     constants::seeds::POOL_AUTHORITY_PREFIX,
+    params::fee_parameters::to_bps,
     safe_math::SafeMath,
-    state::{MigrationOption, MigrationProgress, PoolConfig, VirtualPool},
+    state::{MigrationFeeOption, MigrationOption, MigrationProgress, PoolConfig, VirtualPool},
     *,
 };
 
@@ -119,7 +118,14 @@ pub struct MigrateMeteoraDammCtx<'info> {
 }
 
 impl<'info> MigrateMeteoraDammCtx<'info> {
-    fn validate_config_key(&self) -> Result<()> {
+    fn validate_config_key(&self, migration_fee_option: u8) -> Result<()> {
+        let migration_fee_option = MigrationFeeOption::try_from(migration_fee_option)
+            .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
+        let base_fee_bps = to_bps(
+            self.damm_config.pool_fees.trade_fee_numerator.into(),
+            self.damm_config.pool_fees.trade_fee_denominator.into(),
+        )?;
+        migration_fee_option.validate_base_fee(base_fee_bps)?;
         require!(
             self.damm_config.pool_creator_authority == self.pool_authority.key(),
             PoolError::InvalidConfigAccount
@@ -208,7 +214,9 @@ impl<'info> MigrateMeteoraDammCtx<'info> {
 pub fn handle_migrate_meteora_damm<'info>(
     ctx: Context<'_, '_, '_, 'info, MigrateMeteoraDammCtx<'info>>,
 ) -> Result<()> {
-    ctx.accounts.validate_config_key()?;
+    let config = ctx.accounts.config.load()?;
+    ctx.accounts
+        .validate_config_key(config.migration_fee_option)?;
 
     let mut virtual_pool = ctx.accounts.virtual_pool.load_mut()?;
     require!(
@@ -218,7 +226,6 @@ pub fn handle_migrate_meteora_damm<'info>(
 
     let mut migration_metadata = ctx.accounts.migration_metadata.load_mut()?;
 
-    let config = ctx.accounts.config.load()?;
     require!(
         virtual_pool.is_curve_complete(config.migration_quote_threshold),
         PoolError::PoolIsIncompleted
@@ -259,23 +266,6 @@ pub fn handle_migrate_meteora_damm<'info>(
                 &[&seeds[..]],
             ),
             left_base_token,
-        )?;
-    }
-
-    // remove mint authority
-    {
-        let seeds = pool_authority_seeds!(ctx.bumps.pool_authority);
-        anchor_spl::token::set_authority(
-            CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
-                SetAuthority {
-                    current_authority: ctx.accounts.pool_authority.to_account_info(),
-                    account_or_mint: ctx.accounts.token_a_mint.to_account_info(),
-                },
-                &[&seeds[..]],
-            ),
-            AuthorityType::MintTokens,
-            Some(Pubkey::default()),
         )?;
     }
 

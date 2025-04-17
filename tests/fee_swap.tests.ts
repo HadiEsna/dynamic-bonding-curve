@@ -88,7 +88,8 @@ describe("Fee Swap test", () => {
           numberOfPeriod: new BN(0),
           cliffUnlockAmount: new BN(0),
         },
-        padding: new BN(0),
+        migrationFeeOption: 0,
+        padding: [0, 0, 0, 0, 0, 0, 0],
         curve: curves,
       };
       const params: CreateConfigParams = {
@@ -206,7 +207,7 @@ describe("Fee Swap test", () => {
       );
 
       expect(preBaseReserve.sub(postBaseReserve).toString()).eq(
-        userBaseBaseBalance.toString()
+        new BN(userBaseBaseBalance.toString()).add(totalSwapBaseTradingFee).add(totalSwapBaseProtolFee).toString()
       );
 
       // assert balance vault changed
@@ -217,7 +218,7 @@ describe("Fee Swap test", () => {
         Number(userBaseBaseBalance)
       );
       expect(Number(preBaseVaultBalance) - Number(postBaseVaultBalance)).eq(
-        preBaseReserve.sub(postBaseReserve).toNumber()
+        (preBaseReserve.sub(postBaseReserve)).sub(totalSwapBaseTradingFee).sub(totalSwapBaseProtolFee).toNumber()
       );
     });
 
@@ -332,7 +333,7 @@ describe("Fee Swap test", () => {
         (
           Number(preQuoteVaultBalance) - Number(postQuoteVaultBalance)
         ).toString()
-      ).eq(preQuoteReserve.sub(postQuoteReserve).toString());
+      ).eq(preQuoteReserve.sub(postQuoteReserve).sub(totalSwapQuoteTradingFee).sub(totalSwapQuoteProtocolFee).toString());
       expect(
         (Number(postBaseVaultBalance) - Number(preBaseVaultBalance)).toString()
       ).eq(inAmount.toString());
@@ -404,7 +405,8 @@ describe("Fee Swap test", () => {
           numberOfPeriod: new BN(0),
           cliffUnlockAmount: new BN(0),
         },
-        padding: new BN(0),
+        migrationFeeOption: 0,
+        padding: [0, 0, 0, 0, 0, 0, 0],
         curve: curves,
       };
       const params: CreateConfigParams = {
@@ -641,7 +643,7 @@ describe("Fee Swap test", () => {
         (
           Number(preQuoteVaultBalance) - Number(postQuoteVaultBalance)
         ).toString()
-      ).eq(preQuoteReserve.sub(postQuoteReserve).toString());
+      ).eq(preQuoteReserve.sub(postQuoteReserve).sub(totalSwapQuoteTradingFee).sub(totalSwapQuoteProtocolFee).toString());
       expect(
         (Number(postBaseVaultBalance) - Number(preBaseVaultBalance)).toString()
       ).eq(inAmount.toString());

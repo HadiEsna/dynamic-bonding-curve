@@ -9,7 +9,7 @@ use crate::{
     },
     fee_math::get_fee_in_period,
     params::{
-        fee_parameters::PoolFeeParamters, liquidity_distribution::LiquidityDistributionParameters,
+        fee_parameters::PoolFeeParameters, liquidity_distribution::LiquidityDistributionParameters,
     },
     safe_math::SafeMath,
     u128x128_math::Rounding,
@@ -160,17 +160,10 @@ impl BaseFeeConfig {
             return Ok(self.cliff_fee_numerator);
         }
 
-        // When trading before activation point (this won't happpen), use the maximum
-        // number of periods to ensure the lowest fee is charged. After activation, calculate
-        // periods based on time elapsed, capped by the maximum number of periods.
-        let period = if current_point < activation_point {
-            self.number_of_period.into()
-        } else {
-            let period = current_point
-                .safe_sub(activation_point)?
-                .safe_div(self.period_frequency)?;
-            period.min(self.number_of_period.into())
-        };
+        let period = current_point
+            .safe_sub(activation_point)?
+            .safe_div(self.period_frequency)?;
+        let period = period.min(self.number_of_period.into());
 
         let fee_scheduler_mode = FeeSchedulerMode::try_from(self.fee_scheduler_mode)
             .map_err(|_| PoolError::TypeCastFailed)?;
@@ -296,6 +289,44 @@ pub enum TokenType {
     Token2022,
 }
 
+#[repr(u8)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    IntoPrimitive,
+    TryFromPrimitive,
+    AnchorDeserialize,
+    AnchorSerialize,
+)]
+pub enum MigrationFeeOption {
+    FixedBps25,  // 0.25%
+    FixedBps30,  // 0.3%
+    FixedBps100, // 1%
+    FixedBps200, // 2%
+}
+
+impl MigrationFeeOption {
+    pub fn validate_base_fee(&self, base_fee_bps: u64) -> Result<()> {
+        match *self {
+            MigrationFeeOption::FixedBps25 => {
+                require!(base_fee_bps == 25, PoolError::InvalidMigrationFeeOption);
+            }
+            MigrationFeeOption::FixedBps30 => {
+                require!(base_fee_bps == 30, PoolError::InvalidMigrationFeeOption);
+            }
+            MigrationFeeOption::FixedBps100 => {
+                require!(base_fee_bps == 100, PoolError::InvalidMigrationFeeOption);
+            }
+            MigrationFeeOption::FixedBps200 => {
+                require!(base_fee_bps == 200, PoolError::InvalidMigrationFeeOption);
+            }
+        }
+        Ok(())
+    }
+}
+
 #[account(zero_copy)]
 #[derive(InitSpace, Debug, Default)]
 pub struct PoolConfig {
@@ -329,8 +360,10 @@ pub struct PoolConfig {
     pub creator_locked_lp_percentage: u8,
     /// creator lp percentage
     pub creator_lp_percentage: u8,
+    /// migration fee option
+    pub migration_fee_option: u8,
     /// padding 0
-    pub _padding_0: [u8; 5],
+    pub _padding_0: [u8; 4],
     /// padding 1
     pub _padding_1: [u8; 8],
     /// swap base amount
@@ -368,7 +401,7 @@ impl PoolConfig {
         quote_mint: &Pubkey,
         fee_claimer: &Pubkey,
         owner: &Pubkey,
-        pool_fees: &PoolFeeParamters,
+        pool_fees: &PoolFeeParameters,
         collect_fee_mode: u8,
         migration_option: u8,
         activation_type: u8,
@@ -380,6 +413,7 @@ impl PoolConfig {
         creator_locked_lp_percentage: u8,
         creator_lp_percentage: u8,
         locked_vesting_params: &LockedVestingParams,
+        migration_fee_option: u8,
         swap_base_amount: u64,
         migration_quote_threshold: u64,
         migration_base_threshold: u64,
@@ -411,6 +445,7 @@ impl PoolConfig {
         self.creator_locked_lp_percentage = creator_locked_lp_percentage;
 
         self.locked_vesting_config = locked_vesting_params.to_locked_vesting_config();
+        self.migration_fee_option = migration_fee_option;
 
         let curve_length = curve.len();
         for i in 0..MAX_CURVE_POINT {
@@ -443,10 +478,13 @@ impl PoolConfig {
     }
 
     pub fn get_initial_base_supply(&self) -> Result<u64> {
-        let total_amount = PoolConfig::total_amount_with_buffer(
+        let total_circulating_amount = PoolConfig::total_amount_with_buffer(
             self.swap_base_amount,
             self.migration_base_threshold,
         )?;
+        let locked_vesting_params = self.locked_vesting_config.to_locked_vesting_params();
+        let total_locked_vesting_amount = locked_vesting_params.get_total_amount()?;
+        let total_amount = total_circulating_amount.safe_add(total_locked_vesting_amount.into())?;
         Ok(u64::try_from(total_amount).map_err(|_| PoolError::MathOverflow)?)
     }
 
