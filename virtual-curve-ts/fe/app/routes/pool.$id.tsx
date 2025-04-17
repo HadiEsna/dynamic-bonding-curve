@@ -567,7 +567,7 @@ export default function PoolDetailsPage() {
 
   // --- Success State (Render Page) ---
   return (
-    <div className="container mx-auto p-4 h-dvh">
+    <div className="container mx-auto p-4 min-h-dvh">
       <h1 className="text-2xl font-bold mb-4 text-white">Pool Details</h1>
       <p className="mb-2 text-gray-300">
         <span className="font-semibold">Pool ID:</span> {params.id}
@@ -634,6 +634,22 @@ export default function PoolDetailsPage() {
               </p>
               <p className="font-medium">
                 {pool.metrics?.totalTradingQuoteFee?.toString() ?? 'N/A'}
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-400 text-xs">
+                Migration Threshold (Quote)
+              </p>
+              <p className="font-medium">
+                {config.migrationQuoteThreshold.toString() ?? 'N/A'}
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-400 text-xs">
+                Migration Threshold (Base)
+              </p>
+              <p className="font-medium">
+                {config.migrationBaseThreshold.toString() ?? 'N/A'}
               </p>
             </div>
             <div>
