@@ -124,3 +124,45 @@ pub struct EvtPartnerWithdrawSurplus {
     pub pool: Pubkey,
     pub surplus_amount: u64,
 }
+
+#[event]
+pub struct EvtMigrateMeteoraPool {
+    pub virtual_pool: Pubkey,
+    pub pool: Pubkey,
+    pub base_amount: u64,
+    pub quote_amount: u64,
+    pub sqrt_price: u128,
+    pub partner_lp: u64,
+    pub creator_lp: u64,
+    pub partner_locked_lp: u64,
+    pub creator_locked_lp: u64,
+}
+
+#[event]
+pub struct EvtMeteoraLockLp {
+    pub virtual_pool: Pubkey,
+    pub pool: Pubkey,
+    pub lp_amount: u64,
+    pub owner: Pubkey,
+}
+
+#[event]
+pub struct EvtMigrateDammV2Pool {
+    pub virtual_pool: Pubkey,
+    pub pool: Pubkey,
+    pub base_amount: u64,
+    pub quote_amount: u64,
+    pub sqrt_price: u128,
+    pub partner_liquidity: u128,
+    pub creator_liquidity: u128,
+    pub partner_locked_liquidity: u128,
+    pub creator_locked_liquidity: u128,
+}
+
+#[event]
+pub struct EvtDammV2LockLp {
+    pub virtual_pool: Pubkey,
+    pub pool: Pubkey,
+    pub liquidity: u128,
+    pub owner: Pubkey,
+}

@@ -5,10 +5,14 @@ use crate::{
     constants::seeds::POOL_AUTHORITY_PREFIX,
     params::fee_parameters::to_bps,
     safe_math::SafeMath,
-    state::{MigrationFeeOption, MigrationOption, MigrationProgress, PoolConfig, VirtualPool},
+    state::{
+        LiquidityDistributionU64, MigrationFeeOption, MigrationOption, MigrationProgress,
+        PoolConfig, VirtualPool,
+    },
     *,
 };
 
+#[event_cpi]
 #[derive(Accounts)]
 pub struct MigrateMeteoraDammCtx<'info> {
     /// virtual pool
@@ -275,7 +279,25 @@ pub fn handle_migrate_meteora_damm<'info>(
     migration_metadata.set_lp_minted(ctx.accounts.lp_mint.key(), &lp_distribution);
     virtual_pool.set_migration_progress(MigrationProgress::CreatedPool.into());
 
-    // TODO emit event
+    let sqrt_price = { ctx.accounts.config.load()?.migration_sqrt_price };
+    let LiquidityDistributionU64 {
+        creator_locked_lp,
+        creator_lp,
+        partner_locked_lp,
+        partner_lp,
+    } = lp_distribution;
+
+    emit_cpi!(EvtMigrateMeteoraPool {
+        virtual_pool: ctx.accounts.virtual_pool.key(),
+        pool: ctx.accounts.pool.key(),
+        base_amount: base_reserve,
+        quote_amount: quote_reserve,
+        sqrt_price,
+        creator_lp,
+        creator_locked_lp,
+        partner_locked_lp,
+        partner_lp
+    });
 
     Ok(())
 }

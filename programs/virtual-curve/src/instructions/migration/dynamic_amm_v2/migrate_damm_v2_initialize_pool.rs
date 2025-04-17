@@ -19,6 +19,7 @@ use crate::{
     *,
 };
 
+#[event_cpi]
 #[derive(Accounts)]
 pub struct MigrateDammV2Ctx<'info> {
     /// virtual pool
@@ -476,6 +477,19 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         config.migration_sqrt_price,
         ctx.bumps.pool_authority,
     )?;
+
+    emit_cpi!(EvtMigrateDammV2Pool {
+        virtual_pool: ctx.accounts.virtual_pool.key(),
+        pool: ctx.accounts.pool.key(),
+        base_amount: excluded_fee_base_reserve,
+        quote_amount: quote_threshold,
+        sqrt_price: config.migration_sqrt_price,
+        partner_liquidity: partner_liquidity_distribution.unlocked_liquidity,
+        creator_liquidity: creator_liquidity_distribution.unlocked_liquidity,
+        partner_locked_liquidity: partner_liquidity_distribution.locked_liquidity,
+        creator_locked_liquidity: creator_liquidity_distribution.locked_liquidity,
+    });
+
     // lock permanent liquidity
     if first_position_liquidity_distribution.locked_liquidity > 0 {
         msg!("lock permanent liquidity for first position");
@@ -483,6 +497,13 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
             first_position_liquidity_distribution.locked_liquidity,
             ctx.bumps.pool_authority,
         )?;
+
+        emit_cpi!(EvtDammV2LockLp {
+            virtual_pool: ctx.accounts.virtual_pool.key(),
+            pool: ctx.accounts.pool.key(),
+            liquidity: first_position_liquidity_distribution.locked_liquidity,
+            owner: first_position_owner
+        })
     }
 
     msg!("transfer ownership of the first position");
@@ -517,6 +538,13 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
             locked_lp,
             ctx.bumps.pool_authority,
         )?;
+
+        emit_cpi!(EvtDammV2LockLp {
+            virtual_pool: ctx.accounts.virtual_pool.key(),
+            pool: ctx.accounts.pool.key(),
+            liquidity: first_position_liquidity_distribution.locked_liquidity,
+            owner: first_position_owner
+        })
     }
 
     virtual_pool.update_after_create_pool();
@@ -546,8 +574,6 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     }
 
     virtual_pool.set_migration_progress(MigrationProgress::CreatedPool.into());
-
-    // TODO emit event
 
     Ok(())
 }

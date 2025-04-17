@@ -9,6 +9,7 @@ use anchor_spl::token::{Token, TokenAccount};
 use dynamic_amm::accounts::LockEscrow;
 
 /// create lock escrow must be before that transaction
+#[event_cpi]
 #[derive(Accounts)]
 pub struct MigrateMeteoraDammLockLpTokenCtx<'info> {
     pub virtual_pool: AccountLoader<'info, VirtualPool>,
@@ -117,6 +118,10 @@ pub fn handle_migrate_meteora_damm_lock_lp_token<'info>(
         PoolError::NotPermitToDoThisAction
     );
 
+    let virtual_pool_key = ctx.accounts.virtual_pool.key();
+    let pool_key = ctx.accounts.pool.key();
+    let owner_key = ctx.accounts.owner.key();
+
     let mut migration_metadata = ctx.accounts.migration_metadata.load_mut()?;
     if ctx.accounts.owner.key() == migration_metadata.partner {
         require!(
@@ -129,10 +134,17 @@ pub fn handle_migrate_meteora_damm_lock_lp_token<'info>(
         );
 
         migration_metadata.set_partner_lock_status();
-        ctx.accounts.lock(
-            ctx.bumps.pool_authority,
-            migration_metadata.partner_locked_lp,
-        )?;
+
+        let lp_amount = migration_metadata.partner_locked_lp;
+
+        ctx.accounts.lock(ctx.bumps.pool_authority, lp_amount)?;
+
+        emit_cpi!(EvtMeteoraLockLp {
+            virtual_pool: virtual_pool_key,
+            pool: pool_key,
+            lp_amount,
+            owner: owner_key
+        });
     } else if ctx.accounts.owner.key() == migration_metadata.pool_creator {
         require!(
             !migration_metadata.is_creator_lp_locked(),
@@ -145,10 +157,16 @@ pub fn handle_migrate_meteora_damm_lock_lp_token<'info>(
 
         migration_metadata.set_creator_lock_status();
 
-        ctx.accounts.lock(
-            ctx.bumps.pool_authority,
-            migration_metadata.creator_locked_lp,
-        )?;
+        let lp_amount = migration_metadata.creator_locked_lp;
+
+        ctx.accounts.lock(ctx.bumps.pool_authority, lp_amount)?;
+
+        emit_cpi!(EvtMeteoraLockLp {
+            virtual_pool: virtual_pool_key,
+            pool: pool_key,
+            lp_amount,
+            owner: owner_key
+        });
     }
     Ok(())
 }

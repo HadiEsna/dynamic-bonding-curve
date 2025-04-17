@@ -556,6 +556,7 @@ pub struct LiquidityDistribution {
     pub creator: LiquidityDistributionItem,
 }
 
+#[derive(Copy, Clone)]
 pub struct LiquidityDistributionItem {
     pub unlocked_liquidity: u128,
     pub locked_liquidity: u128,
