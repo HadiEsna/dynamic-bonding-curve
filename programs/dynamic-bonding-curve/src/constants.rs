@@ -26,6 +26,8 @@ pub const SWAP_BUFFER_PERCENTAGE: u8 = 25; // 25%
 
 pub const PARTNER_SURPLUS_SHARE: u8 = 90; // 90 %
 
+pub const MAX_SWALLOW_PERCENTAGE: u8 = 20; // 20 %
+
 pub mod activation {
     #[cfg(not(feature = "local"))]
     pub const SLOT_BUFFER: u64 = 9000; // 1 slot = 400 mls => 1 hour

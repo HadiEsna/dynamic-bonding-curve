@@ -399,7 +399,11 @@ impl VirtualPool {
             }
         }
 
-        require!(amount_left == 0, PoolError::NotEnoughLiquidity);
+        // allow pool swallow an extra amount
+        require!(
+            amount_left <= config.get_max_swallow_quote_amount()?,
+            PoolError::SwapAmountIsOverAThreshold
+        );
 
         Ok(SwapAmount {
             output_amount: total_output_amount,

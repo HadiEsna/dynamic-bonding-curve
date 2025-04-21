@@ -6,7 +6,7 @@ use static_assertions::const_assert_eq;
 use crate::{
     constants::{
         fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR},
-        MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, SWAP_BUFFER_PERCENTAGE,
+        MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, MAX_SWALLOW_PERCENTAGE, SWAP_BUFFER_PERCENTAGE,
     },
     fee_math::get_fee_in_period,
     params::{
@@ -612,6 +612,16 @@ impl PoolConfig {
                 locked_liquidity: creator_locked_lp,
             },
         })
+    }
+
+    pub fn get_max_swallow_quote_amount(&self) -> Result<u64> {
+        let max_swallow_amount = safe_mul_div_cast_u64(
+            self.migration_quote_threshold,
+            MAX_SWALLOW_PERCENTAGE.into(),
+            100,
+            Rounding::Down,
+        )?;
+        Ok(max_swallow_amount)
     }
 }
 
