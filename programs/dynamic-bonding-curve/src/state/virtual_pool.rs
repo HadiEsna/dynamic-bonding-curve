@@ -4,7 +4,7 @@ use ruint::aliases::U256;
 use static_assertions::const_assert_eq;
 
 use crate::{
-    constants::{MAX_CURVE_POINT, PARTNER_SURPLUS_SHARE},
+    constants::PARTNER_SURPLUS_SHARE,
     curve::{
         get_delta_amount_base_unsigned, get_delta_amount_base_unsigned_256,
         get_delta_amount_quote_unsigned, get_delta_amount_quote_unsigned_256,
@@ -277,7 +277,11 @@ impl VirtualPool {
         let mut total_output_amount = 0u64;
         let mut current_sqrt_price = self.sqrt_price;
         let mut amount_left = amount_in;
-        for i in (0..MAX_CURVE_POINT - 1).rev() {
+        // Use curve.len() for backward compatibility for existing pools with 20 points
+        for i in (0..config.curve.len() - 1).rev() {
+            if config.curve[i].sqrt_price == 0 || config.curve[i].liquidity == 0 {
+                continue;
+            }
             if config.curve[i].sqrt_price < current_sqrt_price {
                 let max_amount_in = get_delta_amount_base_unsigned_256(
                     config.curve[i].sqrt_price,
@@ -354,7 +358,11 @@ impl VirtualPool {
         let mut total_output_amount = 0u64;
         let mut current_sqrt_price = self.sqrt_price;
         let mut amount_left = amount_in;
-        for i in 0..MAX_CURVE_POINT {
+        // Use curve.len() for backward compatibility for existing pools with 20 points
+        for i in 0..config.curve.len() {
+            if config.curve[i].sqrt_price == 0 || config.curve[i].liquidity == 0 {
+                break;
+            }
             if config.curve[i].sqrt_price > current_sqrt_price {
                 let max_amount_in = get_delta_amount_quote_unsigned_256(
                     current_sqrt_price,
@@ -399,7 +407,11 @@ impl VirtualPool {
             }
         }
 
-        require!(amount_left == 0, PoolError::NotEnoughLiquidity);
+        // allow pool swallow an extra amount
+        require!(
+            amount_left <= config.get_max_swallow_quote_amount()?,
+            PoolError::SwapAmountIsOverAThreshold
+        );
 
         Ok(SwapAmount {
             output_amount: total_output_amount,
