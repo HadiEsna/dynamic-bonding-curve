@@ -137,8 +137,8 @@ describe("Fee Swap test", () => {
       // use to validate virtual curve state
       const preBaseReserve = virtualPoolState.baseReserve;
       const preQuoteReserve = virtualPoolState.quoteReserve;
-      const preQuoteTradingFee = virtualPoolState.tradingQuoteFee;
-      const preBaseTradingFee = virtualPoolState.tradingBaseFee;
+      const preQuoteTradingFee = virtualPoolState.partnerQuoteFee;
+      const preBaseTradingFee = virtualPoolState.partnerBaseFee;
       const preQuoteProtocolFee = virtualPoolState.protocolQuoteFee;
       const preBaseProtocolFee = virtualPoolState.protocolBaseFee;
 
@@ -177,8 +177,8 @@ describe("Fee Swap test", () => {
       // use to validate virtual curve state
       const postBaseReserve = virtualPoolState.baseReserve;
       const postQuoteReserve = virtualPoolState.quoteReserve;
-      const postQuoteTradingFee = virtualPoolState.tradingQuoteFee;
-      const postBaseTradingFee = virtualPoolState.tradingBaseFee;
+      const postQuoteTradingFee = virtualPoolState.partnerQuoteFee;
+      const postBaseTradingFee = virtualPoolState.partnerBaseFee;
       const postQuoteProtocolFee = virtualPoolState.protocolQuoteFee;
       const postBaseProtocolFee = virtualPoolState.protocolBaseFee;
 
@@ -214,7 +214,7 @@ describe("Fee Swap test", () => {
         virtualPoolState.protocolBaseFee.toString()
       );
       expect(totalSwapBaseTradingFee.toString()).eq(
-        virtualPoolState.tradingBaseFee.toString()
+        virtualPoolState.partnerBaseFee.toString()
       );
       expect(postQuoteReserve.sub(new BN(inAmount)).toString()).eq(
         preQuoteReserve.toString()
@@ -253,8 +253,8 @@ describe("Fee Swap test", () => {
       // use to validate virtual curve state
       const preBaseReserve = virtualPoolState.baseReserve;
       const preQuoteReserve = virtualPoolState.quoteReserve;
-      const preQuoteTradingFee = virtualPoolState.tradingQuoteFee;
-      const preBaseTradingFee = virtualPoolState.tradingBaseFee;
+      const preQuoteTradingFee = virtualPoolState.partnerQuoteFee;
+      const preBaseTradingFee = virtualPoolState.partnerBaseFee;
       const preQuoteProtocolFee = virtualPoolState.protocolQuoteFee;
       const preBaseProtocolFee = virtualPoolState.protocolBaseFee;
 
@@ -301,8 +301,8 @@ describe("Fee Swap test", () => {
       // use to validate virtual curve state
       const postBaseReserve = virtualPoolState.baseReserve;
       const postQuoteReserve = virtualPoolState.quoteReserve;
-      const postQuoteTradingFee = virtualPoolState.tradingQuoteFee;
-      const postBaseTradingFee = virtualPoolState.tradingBaseFee;
+      const postQuoteTradingFee = virtualPoolState.partnerQuoteFee;
+      const postBaseTradingFee = virtualPoolState.partnerBaseFee;
       const postQuoteProtocolFee = virtualPoolState.protocolQuoteFee;
       const postBaseProtocolFee = virtualPoolState.protocolBaseFee;
 
@@ -332,7 +332,7 @@ describe("Fee Swap test", () => {
         virtualPoolState.protocolQuoteFee.toString()
       );
       expect(totalSwapQuoteTradingFee.toString()).eq(
-        virtualPoolState.tradingQuoteFee.toString()
+        virtualPoolState.partnerQuoteFee.toString()
       );
       expect(totalSwapBaseProtolFee.toNumber()).eq(0);
       expect(totalSwapBaseTradingFee.toNumber()).eq(0);
@@ -482,8 +482,8 @@ describe("Fee Swap test", () => {
       // use to validate virtual curve state
       const preBaseReserve = virtualPoolState.baseReserve;
       const preQuoteReserve = virtualPoolState.quoteReserve;
-      const preQuoteTradingFee = virtualPoolState.tradingQuoteFee;
-      const preBaseTradingFee = virtualPoolState.tradingBaseFee;
+      const preQuoteTradingFee = virtualPoolState.partnerQuoteFee;
+      const preBaseTradingFee = virtualPoolState.partnerBaseFee;
       const preQuoteProtocolFee = virtualPoolState.protocolQuoteFee;
       const preBaseProtocolFee = virtualPoolState.protocolBaseFee;
 
@@ -522,8 +522,8 @@ describe("Fee Swap test", () => {
       // use to validate virtual curve state
       const postBaseReserve = virtualPoolState.baseReserve;
       const postQuoteReserve = virtualPoolState.quoteReserve;
-      const postQuoteTradingFee = virtualPoolState.tradingQuoteFee;
-      const postBaseTradingFee = virtualPoolState.tradingBaseFee;
+      const postQuoteTradingFee = virtualPoolState.partnerQuoteFee;
+      const postBaseTradingFee = virtualPoolState.partnerBaseFee;
       const postQuoteProtocolFee = virtualPoolState.protocolQuoteFee;
       const postBaseProtocolFee = virtualPoolState.protocolBaseFee;
 
@@ -559,7 +559,7 @@ describe("Fee Swap test", () => {
         virtualPoolState.protocolQuoteFee.toString()
       );
       expect(totalSwapQuoteTradingFee.toString()).eq(
-        virtualPoolState.tradingQuoteFee.toString()
+        virtualPoolState.partnerQuoteFee.toString()
       );
       expect(totalSwapBaseProtolFee.toNumber()).eq(0);
       expect(totalSwapBaseTradingFee.toNumber()).eq(0);
@@ -592,8 +592,8 @@ describe("Fee Swap test", () => {
       // use to validate virtual curve state
       const preBaseReserve = virtualPoolState.baseReserve;
       const preQuoteReserve = virtualPoolState.quoteReserve;
-      const preQuoteTradingFee = virtualPoolState.tradingQuoteFee;
-      const preBaseTradingFee = virtualPoolState.tradingBaseFee;
+      const preQuoteTradingFee = virtualPoolState.partnerQuoteFee;
+      const preBaseTradingFee = virtualPoolState.partnerBaseFee;
       const preQuoteProtocolFee = virtualPoolState.protocolQuoteFee;
       const preBaseProtocolFee = virtualPoolState.protocolBaseFee;
 
@@ -640,8 +640,8 @@ describe("Fee Swap test", () => {
       // use to validate virtual curve state
       const postBaseReserve = virtualPoolState.baseReserve;
       const postQuoteReserve = virtualPoolState.quoteReserve;
-      const postQuoteTradingFee = virtualPoolState.tradingQuoteFee;
-      const postBaseTradingFee = virtualPoolState.tradingBaseFee;
+      const postQuoteTradingFee = virtualPoolState.partnerQuoteFee;
+      const postBaseTradingFee = virtualPoolState.partnerBaseFee;
       const postQuoteProtocolFee = virtualPoolState.protocolQuoteFee;
       const postBaseProtocolFee = virtualPoolState.protocolBaseFee;
 

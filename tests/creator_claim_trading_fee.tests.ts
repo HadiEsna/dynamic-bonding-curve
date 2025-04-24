@@ -291,11 +291,11 @@ async function fullFlow(
         expect(virtualPoolState.creatorBaseFee.toString()).eq("0");
         expect(virtualPoolState.creatorQuoteFee.toString()).eq("0");
     } else if (partnerTradingFeePercentage == 0) {
-        expect(virtualPoolState.tradingBaseFee.toString()).eq("0");
-        expect(virtualPoolState.tradingQuoteFee.toString()).eq("0");
+        expect(virtualPoolState.partnerBaseFee.toString()).eq("0");
+        expect(virtualPoolState.partnerQuoteFee.toString()).eq("0");
     } else {
-        expect(virtualPoolState.creatorBaseFee.mul(new BN(partnerTradingFeePercentage)).toString()).eq(virtualPoolState.tradingBaseFee.mul(new BN(creatorTradingFeePercentage)).toString());
-        expect(virtualPoolState.creatorQuoteFee.mul(new BN(partnerTradingFeePercentage)).toString()).eq(virtualPoolState.tradingQuoteFee.mul(new BN(creatorTradingFeePercentage)).toString());
+        expect(virtualPoolState.creatorBaseFee.mul(new BN(partnerTradingFeePercentage)).toString()).eq(virtualPoolState.partnerBaseFee.mul(new BN(creatorTradingFeePercentage)).toString());
+        expect(virtualPoolState.creatorQuoteFee.mul(new BN(partnerTradingFeePercentage)).toString()).eq(virtualPoolState.partnerQuoteFee.mul(new BN(creatorTradingFeePercentage)).toString());
     }
 
     // migrate
