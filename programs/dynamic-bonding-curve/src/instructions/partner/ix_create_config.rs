@@ -6,7 +6,7 @@ use crate::{
     activation_handler::ActivationType,
     constants::{MAX_CURVE_POINT, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     params::{
-        fee_parameters::PoolFeeParameters,
+        fee_parameters::{validate_fee_fraction, PoolFeeParameters},
         liquidity_distribution::{
             get_base_token_for_swap, get_migration_base_token, get_migration_threshold_price,
             LiquidityDistributionParameters,
@@ -38,8 +38,10 @@ pub struct ConfigParameters {
     pub locked_vesting: LockedVestingParams,
     pub migration_fee_option: u8,
     pub token_supply: Option<TokenSupplyParams>,
+    pub creator_trading_fee_percentage: u8, // percentage of trading fee creator can share with partner
+    pub padding_0: [u8; 7],
     /// padding for future use
-    pub padding: [u64; 8],
+    pub padding_1: [u64; 7],
     pub curve: Vec<LiquidityDistributionParameters>,
 }
 
@@ -121,6 +123,8 @@ impl ConfigParameters {
 
         // validate fee
         self.pool_fees.validate()?;
+        // validate creator trading fee percerntage
+        validate_fee_fraction(self.creator_trading_fee_percentage.into(), 100)?;
 
         // validate collect fee mode
         require!(
@@ -264,6 +268,7 @@ pub fn handle_create_config(
         migration_fee_option,
         token_supply,
         curve,
+        creator_trading_fee_percentage,
         ..
     } = config_parameters;
 
@@ -339,6 +344,7 @@ pub fn handle_create_config(
         ctx.accounts.fee_claimer.key,
         ctx.accounts.leftover_receiver.key,
         &pool_fees,
+        creator_trading_fee_percentage,
         collect_fee_mode,
         migration_option,
         activation_type,

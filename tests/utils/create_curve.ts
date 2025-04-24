@@ -363,6 +363,8 @@ export function designCurve(
             preMigrationTokenSupply: totalSupply,
             postMigrationTokenSupply: totalSupply,
         },
+        creatorTradingFeePercentage: 0,
+        padding0: [],
         padding: [],
         curve,
     };

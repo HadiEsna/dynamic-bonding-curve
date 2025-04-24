@@ -71,6 +71,8 @@ export type ConfigParameters = {
   lockedVesting: LockedVestingParams;
   migrationFeeOption: number;
   tokenSupply: TokenSupplyParams | null;
+  creatorTradingFeePercentage: number;
+  padding0: number[];
   padding: BN[];
   curve: Array<LiquidityDistributionParameters>;
 };
