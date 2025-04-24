@@ -32,7 +32,7 @@ import {
     partnerClaimLpDamm,
 } from "./instructions/meteoraMigration";
 
-describe.only("Claim lp on meteora dammm", () => {
+describe("Claim lp on meteora dammm", () => {
     let context: ProgramTestContext;
     let admin: Keypair;
     let operator: Keypair;
@@ -147,6 +147,74 @@ describe.only("Claim lp on meteora dammm", () => {
         );
     });
 
+    it("Swap", async () => {
+        const params: SwapParams = {
+            config,
+            payer: user,
+            pool: virtualPool,
+            inputTokenMint: NATIVE_MINT,
+            outputTokenMint: virtualPoolState.baseMint,
+            amountIn: new BN(LAMPORTS_PER_SOL * 5.5),
+            minimumAmountOut: new BN(0),
+            referralTokenAccount: null,
+        };
+        await swap(context.banksClient, program, params);
+    });
 
+    it("Create meteora metadata", async () => {
+        await createMeteoraMetadata(context.banksClient, program, {
+            payer: admin,
+            virtualPool,
+            config,
+        });
+    });
+
+    it("Migrate to Meteora Damm Pool", async () => {
+        const poolAuthority = derivePoolAuthority();
+        dammConfig = await createDammConfig(
+            context.banksClient,
+            admin,
+            poolAuthority
+        );
+        const migrationParams: MigrateMeteoraParams = {
+            payer: admin,
+            virtualPool,
+            dammConfig,
+        };
+
+        await migrateToMeteoraDamm(context.banksClient, program, migrationParams);
+    });
+
+    it("Partner lock LP", async () => {
+        await lockLpForPartnerDamm(context.banksClient, program, {
+            payer: partner,
+            dammConfig,
+            virtualPool,
+        });
+    });
+
+    it("Creator lock LP", async () => {
+        await lockLpForCreatorDamm(context.banksClient, program, {
+            payer: poolCreator,
+            dammConfig,
+            virtualPool,
+        });
+    });
+
+    it("Partner claim LP", async () => {
+        await partnerClaimLpDamm(context.banksClient, program, {
+            payer: partner,
+            dammConfig,
+            virtualPool,
+        });
+    });
+
+    it("Creator claim LP", async () => {
+        await creatorClaimLpDamm(context.banksClient, program, {
+            payer: poolCreator,
+            dammConfig,
+            virtualPool,
+        });
+    });
 
 });

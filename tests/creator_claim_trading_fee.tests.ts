@@ -1,44 +1,35 @@
 import { BN } from "bn.js";
-import { ProgramTestContext } from "solana-bankrun";
+import { BanksClient, ProgramTestContext } from "solana-bankrun";
 import {
-    BaseFee,
     ClaimCreatorTradeFeeParams,
     claimCreatorTradingFee,
-    claimProtocolFee,
-    ClaimTradeFeeParams,
     claimTradingFee,
-    ConfigParameters,
-    createClaimFeeOperator,
     createConfig,
     CreateConfigParams,
+    createLocker,
     createPoolWithSplToken,
     creatorWithdrawSurplus,
     partnerWithdrawSurplus,
-    protocolWithdrawSurplus,
     swap,
     SwapParams,
 } from "./instructions";
-import { Pool, VirtualCurveProgram } from "./utils/types";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { fundSol, getMint, startTest } from "./utils";
+import { VirtualCurveProgram } from "./utils/types";
+import { Keypair, PublicKey } from "@solana/web3.js";
+import { designCurve, fundSol, startTest } from "./utils";
 import {
     createDammConfig,
     createVirtualCurveProgram,
     derivePoolAuthority,
-    MAX_SQRT_PRICE,
-    MIN_SQRT_PRICE,
     U64_MAX,
 } from "./utils";
-import { getVirtualPool } from "./utils/fetcher";
-import { NATIVE_MINT } from "@solana/spl-token";
+import { getConfig, getVirtualPool } from "./utils/fetcher";
 import {
     createMeteoraMetadata,
-    lockLpForCreatorDamm,
-    lockLpForPartnerDamm,
     MigrateMeteoraParams,
     migrateToMeteoraDamm,
 } from "./instructions/meteoraMigration";
-import { assert, expect } from "chai";
+import { expect } from "chai";
+import { createToken, mintSplTokenTo } from "./utils/token";
 
 describe("Creator and Partner share trading fees and surplus", () => {
     let context: ProgramTestContext;
@@ -48,11 +39,6 @@ describe("Creator and Partner share trading fees and surplus", () => {
     let user: Keypair;
     let poolCreator: Keypair;
     let program: VirtualCurveProgram;
-    let config: PublicKey;
-    let virtualPool: PublicKey;
-    let virtualPoolState: Pool;
-    let dammConfig: PublicKey;
-    let claimFeeOperator: PublicKey;
 
     before(async () => {
         context = await startTest();
@@ -71,254 +57,297 @@ describe("Creator and Partner share trading fees and surplus", () => {
         program = createVirtualCurveProgram();
     });
 
-    it("Admin create claim fee operator", async () => {
-        claimFeeOperator = await createClaimFeeOperator(
-            context.banksClient,
-            program,
-            {
-                admin,
-                operator: operator.publicKey,
-            }
+    it("50-50 fee between partner and creator", async () => {
+        let totalTokenSupply = 1_000_000_000; // 1 billion
+        let percentageSupplyOnMigration = 10; // 10%;
+        let migrationQuoteThreshold = 300; // 300 sol
+        let migrationOption = 0;
+        let tokenBaseDecimal = 6;
+        let tokenQuoteDecimal = 9;
+        let lockedVesting = {
+            amountPerPeriod: new BN(0),
+            cliffDurationFromMigrationTime: new BN(0),
+            frequency: new BN(0),
+            numberOfPeriod: new BN(0),
+            cliffUnlockAmount: new BN(0),
+        };
+        let creatorTradingFeePercentage = 50;
+        let collectFeeMode = 1;
+        let quoteMint = await createToken(context.banksClient, admin, admin.publicKey, tokenQuoteDecimal);
+        let instructionParams = designCurve(
+            totalTokenSupply,
+            percentageSupplyOnMigration,
+            migrationQuoteThreshold,
+            migrationOption,
+            tokenBaseDecimal,
+            tokenQuoteDecimal,
+            creatorTradingFeePercentage,
+            collectFeeMode,
+            lockedVesting
         );
-    });
-
-    it("Partner create config", async () => {
-        const baseFee: BaseFee = {
-            cliffFeeNumerator: new BN(2_500_000),
-            numberOfPeriod: 0,
-            reductionFactor: new BN(0),
-            periodFrequency: new BN(0),
-            feeSchedulerMode: 0,
-        };
-
-        const curves = [];
-
-        for (let i = 1; i <= 16; i++) {
-            if (i == 16) {
-                curves.push({
-                    sqrtPrice: MAX_SQRT_PRICE,
-                    liquidity: U64_MAX.shln(30 + i),
-                });
-            } else {
-                curves.push({
-                    sqrtPrice: MAX_SQRT_PRICE.muln(i * 5).divn(100),
-                    liquidity: U64_MAX.shln(30 + i),
-                });
-            }
-
-        }
-
-        const instructionParams: ConfigParameters = {
-            poolFees: {
-                baseFee,
-                dynamicFee: null,
-            },
-            activationType: 0,
-            collectFeeMode: 0,
-            migrationOption: 0,
-            tokenType: 0, // spl_token
-            tokenDecimal: 6,
-            migrationQuoteThreshold: new BN(LAMPORTS_PER_SOL * 5),
-            partnerLpPercentage: 0,
-            creatorLpPercentage: 0,
-            partnerLockedLpPercentage: 95,
-            creatorLockedLpPercentage: 5,
-            sqrtStartPrice: MIN_SQRT_PRICE.shln(32),
-            lockedVesting: {
-                amountPerPeriod: new BN(0),
-                cliffDurationFromMigrationTime: new BN(0),
-                frequency: new BN(0),
-                numberOfPeriod: new BN(0),
-                cliffUnlockAmount: new BN(0),
-            },
-            migrationFeeOption: 0,
-            tokenSupply: null,
-            creatorTradingFeePercentage: 50,
-            padding0: [],
-            padding: [],
-            curve: curves,
-        };
         const params: CreateConfigParams = {
             payer: partner,
             leftoverReceiver: partner.publicKey,
             feeClaimer: partner.publicKey,
-            quoteMint: NATIVE_MINT,
+            quoteMint,
             instructionParams,
         };
-        config = await createConfig(context.banksClient, program, params);
-    });
+        let config = await createConfig(context.banksClient, program, params);
+        let configState = await getConfig(context.banksClient, program, config);
+        expect(configState.creatorTradingFeePercentage).eq(creatorTradingFeePercentage);
+        await mintSplTokenTo(context.banksClient, user, quoteMint, admin, user.publicKey, instructionParams.migrationQuoteThreshold.mul(new BN(2)).toNumber());
+        await fullFlow(context.banksClient, program, config, poolCreator, user, admin, quoteMint, partner);
+    })
 
-    it("Create spl pool from config", async () => {
-        virtualPool = await createPoolWithSplToken(context.banksClient, program, {
-            payer: poolCreator,
-            quoteMint: NATIVE_MINT,
-            config,
-            instructionParams: {
-                name: "test token spl",
-                symbol: "TEST",
-                uri: "abc.com",
-            },
-        });
-        virtualPoolState = await getVirtualPool(
-            context.banksClient,
-            program,
-            virtualPool
-        );
 
-        // validate freeze authority
-        const baseMintData = (
-            await getMint(context.banksClient, virtualPoolState.baseMint)
-        );
-        expect(baseMintData.freezeAuthority.toString()).eq(PublicKey.default.toString())
-        expect(baseMintData.mintAuthorityOption).eq(0)
-    });
-
-    it("Swap", async () => {
-        const params: SwapParams = {
-            config,
-            payer: user,
-            pool: virtualPool,
-            inputTokenMint: NATIVE_MINT,
-            outputTokenMint: virtualPoolState.baseMint,
-            amountIn: new BN(LAMPORTS_PER_SOL * 5.5),
-            minimumAmountOut: new BN(0),
-            referralTokenAccount: null,
+    it("0-100 fee between partner and creator", async () => {
+        let totalTokenSupply = 1_000_000_000; // 1 billion
+        let percentageSupplyOnMigration = 10; // 10%;
+        let migrationQuoteThreshold = 300; // 300 sol
+        let migrationOption = 0;
+        let tokenBaseDecimal = 6;
+        let tokenQuoteDecimal = 9;
+        let lockedVesting = {
+            amountPerPeriod: new BN(0),
+            cliffDurationFromMigrationTime: new BN(0),
+            frequency: new BN(0),
+            numberOfPeriod: new BN(0),
+            cliffUnlockAmount: new BN(0),
         };
-        await swap(context.banksClient, program, params);
-
-
-    });
-
-    it("Create meteora metadata", async () => {
-        await createMeteoraMetadata(context.banksClient, program, {
-            payer: admin,
-            virtualPool,
-            config,
-        });
-    });
-
-    it("Migrate to Meteora Damm Pool", async () => {
-        const poolAuthority = derivePoolAuthority();
-        dammConfig = await createDammConfig(
-            context.banksClient,
-            admin,
-            poolAuthority
+        let creatorTradingFeePercentage = 100;
+        let collectFeeMode = 0;
+        let quoteMint = await createToken(context.banksClient, admin, admin.publicKey, tokenQuoteDecimal);
+        let instructionParams = designCurve(
+            totalTokenSupply,
+            percentageSupplyOnMigration,
+            migrationQuoteThreshold,
+            migrationOption,
+            tokenBaseDecimal,
+            tokenQuoteDecimal,
+            creatorTradingFeePercentage,
+            collectFeeMode,
+            lockedVesting
         );
-        const migrationParams: MigrateMeteoraParams = {
-            payer: admin,
-            virtualPool,
-            dammConfig,
-        };
-
-        await migrateToMeteoraDamm(context.banksClient, program, migrationParams);
-
-        // validate mint authority
-        const baseMintData = (
-            await getMint(context.banksClient, virtualPoolState.baseMint)
-        );
-        expect(baseMintData.mintAuthorityOption).eq(0)
-    });
-
-    it("Partner lock LP", async () => {
-        await lockLpForPartnerDamm(context.banksClient, program, {
+        const params: CreateConfigParams = {
             payer: partner,
-            dammConfig,
-            virtualPool,
-        });
-    });
-
-    it("Creator lock LP", async () => {
-        await lockLpForCreatorDamm(context.banksClient, program, {
-            payer: poolCreator,
-            dammConfig,
-            virtualPool,
-        });
-    });
-
-    it("Partner withdraw surplus", async () => {
-        // partner withdraw surplus
-        await partnerWithdrawSurplus(context.banksClient, program, {
-            feeClaimer: partner,
-            virtualPool,
-        });
-    });
-
-
-    it("Creator withdraw surplus", async () => {
-        // partner withdraw surplus
-        await creatorWithdrawSurplus(context.banksClient, program, {
-            creator: poolCreator,
-            virtualPool,
-        });
-    });
-
-    it("Creator can not withdraw surplus again", async () => {
-        try {
-            await creatorWithdrawSurplus(context.banksClient, program, {
-                creator: poolCreator,
-                virtualPool,
-            });
-            assert.ok(false);
-        } catch (e) {
-            //
-        }
-    });
-
-
-    it("Parner can not withdraw surplus again", async () => {
-        try {
-            await partnerWithdrawSurplus(context.banksClient, program, {
-                feeClaimer: partner,
-                virtualPool,
-            });
-            assert.ok(false);
-        } catch (e) {
-            //
-        }
-    });
-    it("Protocol withdraw surplus", async () => {
-        await protocolWithdrawSurplus(context.banksClient, program, {
-            operator: operator,
-            virtualPool,
-        });
-    });
-
-    it("Protocol can not withdraw surplus again", async () => {
-        try {
-            await protocolWithdrawSurplus(context.banksClient, program, {
-                operator: operator,
-                virtualPool,
-            });
-            assert.ok(false);
-        } catch (e) {
-            //
-        }
-    });
-
-    it("Creator claim trading fee", async () => {
-        const claimTradingFeeParams: ClaimCreatorTradeFeeParams = {
-            creator: poolCreator,
-            pool: virtualPool,
-            maxBaseAmount: new BN(U64_MAX),
-            maxQuoteAmount: new BN(U64_MAX),
+            leftoverReceiver: partner.publicKey,
+            feeClaimer: partner.publicKey,
+            quoteMint,
+            instructionParams,
         };
-        await claimCreatorTradingFee(context.banksClient, program, claimTradingFeeParams);
-    });
+        let config = await createConfig(context.banksClient, program, params);
+        let configState = await getConfig(context.banksClient, program, config);
+        expect(configState.creatorTradingFeePercentage).eq(creatorTradingFeePercentage);
+        await mintSplTokenTo(context.banksClient, user, quoteMint, admin, user.publicKey, instructionParams.migrationQuoteThreshold.mul(new BN(2)).toNumber());
+        await fullFlow(context.banksClient, program, config, poolCreator, user, admin, quoteMint, partner);
+    })
 
-    it("Partner claim trading fee", async () => {
-        const claimTradingFeeParams: ClaimTradeFeeParams = {
-            feeClaimer: partner,
-            pool: virtualPool,
-            maxBaseAmount: new BN(U64_MAX),
-            maxQuoteAmount: new BN(U64_MAX),
+
+    it("100-0 fee between partner and creator", async () => {
+        let totalTokenSupply = 1_000_000_000; // 1 billion
+        let percentageSupplyOnMigration = 10; // 10%;
+        let migrationQuoteThreshold = 300; // 300 sol
+        let migrationOption = 0;
+        let tokenBaseDecimal = 6;
+        let tokenQuoteDecimal = 9;
+        let lockedVesting = {
+            amountPerPeriod: new BN(0),
+            cliffDurationFromMigrationTime: new BN(0),
+            frequency: new BN(0),
+            numberOfPeriod: new BN(0),
+            cliffUnlockAmount: new BN(0),
         };
-        await claimTradingFee(context.banksClient, program, claimTradingFeeParams);
-    });
+        let creatorTradingFeePercentage = 0;
+        let collectFeeMode = 1;
+        let quoteMint = await createToken(context.banksClient, admin, admin.publicKey, tokenQuoteDecimal);
+        let instructionParams = designCurve(
+            totalTokenSupply,
+            percentageSupplyOnMigration,
+            migrationQuoteThreshold,
+            migrationOption,
+            tokenBaseDecimal,
+            tokenQuoteDecimal,
+            creatorTradingFeePercentage,
+            collectFeeMode,
+            lockedVesting
+        );
+        const params: CreateConfigParams = {
+            payer: partner,
+            leftoverReceiver: partner.publicKey,
+            feeClaimer: partner.publicKey,
+            quoteMint,
+            instructionParams,
+        };
+        let config = await createConfig(context.banksClient, program, params);
+        let configState = await getConfig(context.banksClient, program, config);
+        expect(configState.creatorTradingFeePercentage).eq(creatorTradingFeePercentage);
+        await mintSplTokenTo(context.banksClient, user, quoteMint, admin, user.publicKey, instructionParams.migrationQuoteThreshold.mul(new BN(2)).toNumber());
+        await fullFlow(context.banksClient, program, config, poolCreator, user, admin, quoteMint, partner);
+    })
 
-    it("Operator claim protocol fee", async () => {
-        await claimProtocolFee(context.banksClient, program, {
-            pool: virtualPool,
-            operator: operator,
-        });
-    });
+    it("20-80 fee between partner and creator", async () => {
+        let totalTokenSupply = 1_000_000_000; // 1 billion
+        let percentageSupplyOnMigration = 10; // 10%;
+        let migrationQuoteThreshold = 300; // 300 sol
+        let migrationOption = 0;
+        let tokenBaseDecimal = 6;
+        let tokenQuoteDecimal = 9;
+        let lockedVesting = {
+            amountPerPeriod: new BN(0),
+            cliffDurationFromMigrationTime: new BN(0),
+            frequency: new BN(0),
+            numberOfPeriod: new BN(0),
+            cliffUnlockAmount: new BN(0),
+        };
+        let creatorTradingFeePercentage = 80;
+        let collectFeeMode = 0;
+        let quoteMint = await createToken(context.banksClient, admin, admin.publicKey, tokenQuoteDecimal);
+        let instructionParams = designCurve(
+            totalTokenSupply,
+            percentageSupplyOnMigration,
+            migrationQuoteThreshold,
+            migrationOption,
+            tokenBaseDecimal,
+            tokenQuoteDecimal,
+            creatorTradingFeePercentage,
+            collectFeeMode,
+            lockedVesting
+        );
+        const params: CreateConfigParams = {
+            payer: partner,
+            leftoverReceiver: partner.publicKey,
+            feeClaimer: partner.publicKey,
+            quoteMint,
+            instructionParams,
+        };
+        let config = await createConfig(context.banksClient, program, params);
+        let configState = await getConfig(context.banksClient, program, config);
+        expect(configState.creatorTradingFeePercentage).eq(creatorTradingFeePercentage);
+        await mintSplTokenTo(context.banksClient, user, quoteMint, admin, user.publicKey, instructionParams.migrationQuoteThreshold.mul(new BN(2)).toNumber());
+        await fullFlow(context.banksClient, program, config, poolCreator, user, admin, quoteMint, partner);
+    })
 });
+
+
+
+async function fullFlow(
+    banksClient: BanksClient,
+    program: VirtualCurveProgram,
+    config: PublicKey,
+    poolCreator: Keypair,
+    user: Keypair,
+    admin: Keypair,
+    quoteMint: PublicKey,
+    partner: Keypair,
+) {
+    // create pool
+    let virtualPool = await createPoolWithSplToken(banksClient, program, {
+        payer: poolCreator,
+        quoteMint,
+        config,
+        instructionParams: {
+            name: "test token spl",
+            symbol: "TEST",
+            uri: "abc.com",
+        },
+    });
+    let virtualPoolState = await getVirtualPool(
+        banksClient,
+        program,
+        virtualPool
+    );
+
+    let configState = await getConfig(banksClient, program, config);
+
+    let amountIn;
+    if (configState.collectFeeMode == 0) {
+        // over 20%
+        amountIn = configState.migrationQuoteThreshold.mul(new BN(6)).div(new BN(5));
+    } else {
+        amountIn = configState.migrationQuoteThreshold
+    }
+    // swap
+    const params: SwapParams = {
+        config,
+        payer: user,
+        pool: virtualPool,
+        inputTokenMint: quoteMint,
+        outputTokenMint: virtualPoolState.baseMint,
+        amountIn,
+        minimumAmountOut: new BN(0),
+        referralTokenAccount: null,
+    };
+    await swap(banksClient, program, params);
+
+    let creatorTradingFeePercentage = configState.creatorTradingFeePercentage;
+    let partnerTradingFeePercentage = 100 - creatorTradingFeePercentage;
+    virtualPoolState = await getVirtualPool(
+        banksClient,
+        program,
+        virtualPool
+    );
+    if (creatorTradingFeePercentage == 0) {
+        expect(virtualPoolState.creatorBaseFee.toString()).eq("0");
+        expect(virtualPoolState.creatorQuoteFee.toString()).eq("0");
+    } else if (partnerTradingFeePercentage == 0) {
+        expect(virtualPoolState.tradingBaseFee.toString()).eq("0");
+        expect(virtualPoolState.tradingQuoteFee.toString()).eq("0");
+    } else {
+        expect(virtualPoolState.creatorBaseFee.mul(new BN(partnerTradingFeePercentage)).toString()).eq(virtualPoolState.tradingBaseFee.mul(new BN(creatorTradingFeePercentage)).toString());
+        expect(virtualPoolState.creatorQuoteFee.mul(new BN(partnerTradingFeePercentage)).toString()).eq(virtualPoolState.tradingQuoteFee.mul(new BN(creatorTradingFeePercentage)).toString());
+    }
+
+    // migrate
+    const poolAuthority = derivePoolAuthority();
+    let dammConfig = await createDammConfig(
+        banksClient,
+        admin,
+        poolAuthority
+    );
+    const migrationParams: MigrateMeteoraParams = {
+        payer: admin,
+        virtualPool,
+        dammConfig,
+    };
+    await createMeteoraMetadata(banksClient, program, {
+        payer: admin,
+        virtualPool,
+        config,
+    });
+
+    if (configState.lockedVestingConfig.frequency.toNumber() != 0) {
+        await createLocker(banksClient, program, {
+            payer: admin,
+            virtualPool,
+        });
+    }
+    await migrateToMeteoraDamm(banksClient, program, migrationParams);
+
+    // creator claim trading fee
+    const claimTradingFeeParams: ClaimCreatorTradeFeeParams = {
+        creator: poolCreator,
+        pool: virtualPool,
+        maxBaseAmount: new BN(U64_MAX),
+        maxQuoteAmount: new BN(U64_MAX),
+    };
+    await claimCreatorTradingFee(banksClient, program, claimTradingFeeParams);
+
+    // partner claim trading fee
+    await claimTradingFee(banksClient, program, {
+        feeClaimer: partner,
+        pool: virtualPool,
+        maxBaseAmount: new BN(U64_MAX),
+        maxQuoteAmount: new BN(U64_MAX),
+    })
+    // creator withdraw surplus
+    await creatorWithdrawSurplus(banksClient, program, {
+        creator: poolCreator,
+        virtualPool,
+    });
+
+    // partner withdraw surplus
+    await partnerWithdrawSurplus(banksClient, program, {
+        feeClaimer: partner,
+        virtualPool,
+    });
+}

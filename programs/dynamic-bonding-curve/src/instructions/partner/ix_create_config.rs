@@ -6,7 +6,7 @@ use crate::{
     activation_handler::ActivationType,
     constants::{MAX_CURVE_POINT, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     params::{
-        fee_parameters::{validate_fee_fraction, PoolFeeParameters},
+        fee_parameters::PoolFeeParameters,
         liquidity_distribution::{
             get_base_token_for_swap, get_migration_base_token, get_migration_threshold_price,
             LiquidityDistributionParameters,
@@ -123,8 +123,12 @@ impl ConfigParameters {
 
         // validate fee
         self.pool_fees.validate()?;
+
         // validate creator trading fee percerntage
-        validate_fee_fraction(self.creator_trading_fee_percentage.into(), 100)?;
+        require!(
+            self.creator_trading_fee_percentage <= 100,
+            PoolError::InvalidCreatorTradingFeePercentage
+        );
 
         // validate collect fee mode
         require!(

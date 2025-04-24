@@ -212,9 +212,10 @@ export async function claimTradingFee(
   createBaseTokenAccountIx && preInstructions.push(createBaseTokenAccountIx);
   createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
 
-  const unrapSOLIx = unwrapSOLInstruction(feeClaimer.publicKey);
-
-  unrapSOLIx && postInstructions.push(unrapSOLIx);
+  if (configState.quoteMint == NATIVE_MINT) {
+    const unrapSOLIx = unwrapSOLInstruction(feeClaimer.publicKey);
+    unrapSOLIx && postInstructions.push(unrapSOLIx);
+  }
   const transaction = await program.methods
     .claimTradingFee(maxBaseAmount, maxQuoteAmount)
     .accountsPartial({
