@@ -137,7 +137,9 @@ impl<'info> MigrateDammV2Ctx<'info> {
             MigrationFeeOption::FixedBps25
             | MigrationFeeOption::FixedBps30
             | MigrationFeeOption::FixedBps100
-            | MigrationFeeOption::FixedBps200 => {
+            | MigrationFeeOption::FixedBps200
+            | MigrationFeeOption::FixedBps400
+            | MigrationFeeOption::FixedBps600 => {
                 require!(
                     damm_config.pool_fees.base_fee.period_frequency == 0,
                     PoolError::InvalidConfigAccount

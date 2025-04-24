@@ -311,6 +311,8 @@ pub enum MigrationFeeOption {
     FixedBps30,  // 0.3%
     FixedBps100, // 1%
     FixedBps200, // 2%
+    FixedBps400, // 4%
+    FixedBps600, // 6%
 }
 
 impl MigrationFeeOption {
@@ -327,6 +329,12 @@ impl MigrationFeeOption {
             }
             MigrationFeeOption::FixedBps200 => {
                 require!(base_fee_bps == 200, PoolError::InvalidMigrationFeeOption);
+            }
+            MigrationFeeOption::FixedBps400 => {
+                require!(base_fee_bps == 400, PoolError::InvalidMigrationFeeOption);
+            }
+            MigrationFeeOption::FixedBps600 => {
+                require!(base_fee_bps == 600, PoolError::InvalidMigrationFeeOption);
             }
         }
         Ok(())
