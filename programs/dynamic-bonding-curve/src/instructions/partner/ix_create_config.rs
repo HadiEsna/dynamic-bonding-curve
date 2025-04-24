@@ -124,7 +124,7 @@ impl ConfigParameters {
         // validate fee
         self.pool_fees.validate()?;
 
-        // validate creator trading fee percerntage
+        // validate creator trading fee percentage
         require!(
             self.creator_trading_fee_percentage <= 100,
             PoolError::InvalidCreatorTradingFeePercentage
