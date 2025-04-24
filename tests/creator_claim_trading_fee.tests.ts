@@ -243,6 +243,7 @@ async function fullFlow(
     // create pool
     let virtualPool = await createPoolWithSplToken(banksClient, program, {
         payer: poolCreator,
+        poolCreator: poolCreator,
         quoteMint,
         config,
         instructionParams: {
