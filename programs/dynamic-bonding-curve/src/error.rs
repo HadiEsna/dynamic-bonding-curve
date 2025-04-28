@@ -127,4 +127,10 @@ pub enum PoolError {
 
     #[msg("Migration fee has been withdraw")]
     MigrationFeeHasBeenWithdraw,
+
+    #[msg("Invalid base fee mode")]
+    InvalidBaseFeeMode,
+
+    #[msg("Invalid fee rate limiter")]
+    InvalidFeeRateLimiter,
 }
