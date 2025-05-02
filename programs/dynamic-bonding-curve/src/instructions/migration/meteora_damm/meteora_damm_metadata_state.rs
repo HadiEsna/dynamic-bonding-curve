@@ -112,11 +112,20 @@ impl MeteoraDammMigrationMetadata {
         Ok(lp_to_lock)
     }
 
-    pub fn lock_as_self_partnered_creator(&mut self, actual_lock_amount: u64) {
+    pub fn lock_as_self_partnered_creator(&mut self, actual_lock_amount: u64) -> Result<()> {
         self.set_creator_lock_status();
         self.set_partner_lock_status();
-        self.actual_creator_locked_lp = actual_lock_amount;
-        self.actual_partner_locked_lp = actual_lock_amount;
+
+        let total_lp_to_lock = self.creator_locked_lp.safe_add(self.partner_locked_lp)?;
+
+        self.actual_partner_locked_lp = actual_lock_amount
+            .safe_mul(self.partner_locked_lp)?
+            .safe_div(total_lp_to_lock)?;
+
+        self.actual_creator_locked_lp =
+            actual_lock_amount.safe_sub(self.actual_partner_locked_lp)?;
+
+        Ok(())
     }
 
     pub fn set_partner_lock_status(&mut self) {
@@ -173,6 +182,7 @@ impl MeteoraDammMigrationMetadata {
             PoolError::NotPermitToDoThisAction
         );
 
+        // Prevent existing migrated pool to claim lp fee
         require!(
             self.actual_creator_locked_lp != 0,
             PoolError::NotPermitToDoThisAction
@@ -198,6 +208,7 @@ impl MeteoraDammMigrationMetadata {
             PoolError::NotPermitToDoThisAction
         );
 
+        // Prevent existing migrated pool to claim lp fee
         require!(
             self.actual_partner_locked_lp != 0,
             PoolError::NotPermitToDoThisAction
@@ -225,14 +236,20 @@ impl MeteoraDammMigrationMetadata {
             PoolError::NotPermitToDoThisAction
         );
 
+        let total_actual_locked_lp = self
+            .actual_creator_locked_lp
+            .safe_add(self.actual_partner_locked_lp)?;
+
+        // Prevent existing migrated pool to claim lp fee
         require!(
-            self.actual_creator_locked_lp != 0,
+            total_actual_locked_lp != 0,
             PoolError::NotPermitToDoThisAction
         );
 
         let lp_to_claim = self
             .creator_locked_lp
-            .safe_sub(self.actual_creator_locked_lp)?;
+            .safe_add(self.partner_locked_lp)?
+            .safe_sub(total_actual_locked_lp)?;
 
         self.set_creator_claim_lp_fee_status();
         self.set_partner_claim_lp_fee_status();

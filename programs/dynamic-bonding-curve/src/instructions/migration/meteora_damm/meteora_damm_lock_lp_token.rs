@@ -142,7 +142,7 @@ pub fn handle_migrate_meteora_damm_lock_lp_token<'info>(
             let lp_to_lock =
                 migration_metadata.validate_and_get_self_partnered_creator_lock_amount()?;
             let lp_exclude_fee = exclude_fee_lp_amount(lp_to_lock, damm_migration_accounts)?;
-            migration_metadata.lock_as_self_partnered_creator(lp_exclude_fee);
+            migration_metadata.lock_as_self_partnered_creator(lp_exclude_fee)?;
             lp_exclude_fee
         }
         (true, false) => {
