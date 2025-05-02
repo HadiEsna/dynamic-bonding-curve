@@ -175,6 +175,7 @@ struct DammAccounts<'c, 'info> {
     b_vault_lp_mint: &'c AccountInfo<'info>,
 }
 
+#[inline(never)]
 fn validate_damm_accounts(accounts: &DammAccounts<'_, '_>) -> Result<()> {
     let DammAccounts {
         pool,

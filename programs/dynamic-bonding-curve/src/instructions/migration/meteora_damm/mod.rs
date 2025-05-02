@@ -12,4 +12,3 @@ pub mod meteora_damm_claim_lp_fee;
 pub use meteora_damm_claim_lp_fee::*;
 
 mod utils;
-use utils::*;
