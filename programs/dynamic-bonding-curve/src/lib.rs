@@ -150,6 +150,12 @@ pub mod dynamic_bonding_curve {
         instructions::handle_migrate_meteora_damm_claim_lp_token(ctx)
     }
 
+    pub fn migrate_meteora_damm_claim_lp_fee_token<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, MigrateMeteoraDammClaimLpTokenCtx<'info>>,
+    ) -> Result<()> {
+        instructions::handle_migrate_meteora_damm_claim_lp_fee_token(ctx)
+    }
+
     // migrate damm v2
     pub fn migration_damm_v2_create_metadata<'c: 'info, 'info>(
         ctx: Context<'_, '_, 'c, 'info, MigrationDammV2CreateMetadataCtx<'info>>,

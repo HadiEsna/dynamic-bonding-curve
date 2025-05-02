@@ -52,7 +52,7 @@ pub struct MigrateMeteoraDammClaimLpTokenCtx<'info> {
 }
 
 impl<'info> MigrateMeteoraDammClaimLpTokenCtx<'info> {
-    fn transfer(&self, bump: u8, amount: u64) -> Result<()> {
+    pub fn transfer(&self, bump: u8, amount: u64) -> Result<()> {
         let pool_authority_seeds = pool_authority_seeds!(bump);
 
         transfer(

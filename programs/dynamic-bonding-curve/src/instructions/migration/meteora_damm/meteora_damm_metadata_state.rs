@@ -31,8 +31,17 @@ pub struct MeteoraDammMigrationMetadata {
     pub creator_claim_status: u8,
     /// flag to check whether partner has claimed lp token
     pub partner_claim_status: u8,
+    /// flag to check whether creator has claimed fee lp
+    pub creator_claim_fee_lp: u8,
+    /// flag to check whether partner has claimed fee lp
+    pub partner_claim_fee_lp: u8,
+    pub _padding_1: u8,
+    /// actual creator locked lp
+    pub actual_creator_locked_lp: u64,
+    /// actual partner locked lp
+    pub actual_partner_locked_lp: u64,
     /// Reserve
-    pub _padding: [u8; 107],
+    pub _padding: [u8; 88],
 }
 const_assert_eq!(MeteoraDammMigrationMetadata::INIT_SPACE, 272);
 
@@ -55,7 +64,7 @@ impl MeteoraDammMigrationMetadata {
         self.creator_locked_status = 1;
     }
 
-    pub fn lock_as_creator(&mut self) -> Result<u64> {
+    pub fn validate_and_get_creator_lock_amount(&self) -> Result<u64> {
         require!(
             !self.is_creator_lp_locked(),
             PoolError::NotPermitToDoThisAction
@@ -65,12 +74,15 @@ impl MeteoraDammMigrationMetadata {
             PoolError::NotPermitToDoThisAction
         );
 
-        self.set_creator_lock_status();
-
         Ok(self.creator_locked_lp)
     }
 
-    pub fn lock_as_partner(&mut self) -> Result<u64> {
+    pub fn lock_as_creator(&mut self, actual_lock_amount: u64) {
+        self.set_creator_lock_status();
+        self.actual_creator_locked_lp = actual_lock_amount;
+    }
+
+    pub fn validate_and_get_partner_lock_amount(&self) -> Result<u64> {
         require!(
             !self.is_partner_lp_locked(),
             PoolError::NotPermitToDoThisAction
@@ -80,12 +92,15 @@ impl MeteoraDammMigrationMetadata {
             PoolError::NotPermitToDoThisAction
         );
 
-        self.set_partner_lock_status();
-
         Ok(self.partner_locked_lp)
     }
 
-    pub fn lock_as_self_partnered_creator(&mut self) -> Result<u64> {
+    pub fn lock_as_partner(&mut self, actual_lock_amount: u64) {
+        self.set_partner_lock_status();
+        self.actual_partner_locked_lp = actual_lock_amount;
+    }
+
+    pub fn validate_and_get_self_partnered_creator_lock_amount(&self) -> Result<u64> {
         require!(
             !self.is_creator_lp_locked() && !self.is_partner_lp_locked(),
             PoolError::NotPermitToDoThisAction
@@ -94,10 +109,14 @@ impl MeteoraDammMigrationMetadata {
         let lp_to_lock = self.partner_locked_lp.safe_add(self.creator_locked_lp)?;
         require!(lp_to_lock != 0, PoolError::NotPermitToDoThisAction);
 
+        Ok(lp_to_lock)
+    }
+
+    pub fn lock_as_self_partnered_creator(&mut self, actual_lock_amount: u64) {
         self.set_creator_lock_status();
         self.set_partner_lock_status();
-
-        Ok(lp_to_lock)
+        self.actual_creator_locked_lp = actual_lock_amount;
+        self.actual_partner_locked_lp = actual_lock_amount;
     }
 
     pub fn set_partner_lock_status(&mut self) {
@@ -143,12 +162,93 @@ impl MeteoraDammMigrationMetadata {
         Ok(lp_to_claim)
     }
 
+    pub fn claim_lp_fee_as_creator(&mut self) -> Result<u64> {
+        require!(
+            self.is_creator_lp_locked(),
+            PoolError::NotPermitToDoThisAction
+        );
+
+        require!(
+            !self.is_creator_claim_lp_fee(),
+            PoolError::NotPermitToDoThisAction
+        );
+
+        let lp_to_claim = self
+            .creator_locked_lp
+            .safe_sub(self.actual_creator_locked_lp)?;
+
+        require!(lp_to_claim != 0, PoolError::NotPermitToDoThisAction);
+
+        self.set_creator_claim_lp_fee_status();
+
+        Ok(lp_to_claim)
+    }
+
+    pub fn claim_lp_fee_as_partner(&mut self) -> Result<u64> {
+        require!(
+            self.is_partner_lp_locked(),
+            PoolError::NotPermitToDoThisAction
+        );
+
+        require!(
+            !self.is_partner_claim_lp_fee(),
+            PoolError::NotPermitToDoThisAction
+        );
+
+        let lp_to_claim = self
+            .partner_locked_lp
+            .safe_sub(self.actual_partner_locked_lp)?;
+
+        require!(lp_to_claim != 0, PoolError::NotPermitToDoThisAction);
+
+        self.set_partner_claim_lp_fee_status();
+
+        Ok(lp_to_claim)
+    }
+
+    pub fn claim_lp_fee_as_self_partnered_creator(&mut self) -> Result<u64> {
+        require!(
+            self.is_creator_lp_locked() && self.is_partner_lp_locked(),
+            PoolError::NotPermitToDoThisAction
+        );
+
+        require!(
+            !self.is_creator_claim_lp_fee() && !self.is_partner_claim_lp_fee(),
+            PoolError::NotPermitToDoThisAction
+        );
+
+        let lp_to_claim = self
+            .creator_locked_lp
+            .safe_sub(self.actual_creator_locked_lp)?;
+
+        self.set_creator_claim_lp_fee_status();
+        self.set_partner_claim_lp_fee_status();
+
+        Ok(lp_to_claim)
+    }
+
     pub fn set_creator_claim_status(&mut self) {
         self.creator_claim_status = 1;
     }
 
     pub fn set_partner_claim_status(&mut self) {
         self.partner_claim_status = 1;
+    }
+
+    pub fn set_creator_claim_lp_fee_status(&mut self) {
+        self.creator_claim_fee_lp = 1;
+    }
+
+    pub fn set_partner_claim_lp_fee_status(&mut self) {
+        self.partner_claim_fee_lp = 1;
+    }
+
+    pub fn is_creator_claim_lp_fee(&self) -> bool {
+        self.creator_claim_fee_lp == 1
+    }
+
+    pub fn is_partner_claim_lp_fee(&self) -> bool {
+        self.partner_claim_fee_lp == 1
     }
 
     pub fn is_creator_lp_locked(&self) -> bool {
