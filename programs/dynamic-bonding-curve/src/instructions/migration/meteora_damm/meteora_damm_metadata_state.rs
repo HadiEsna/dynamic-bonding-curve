@@ -173,11 +173,14 @@ impl MeteoraDammMigrationMetadata {
             PoolError::NotPermitToDoThisAction
         );
 
+        require!(
+            self.actual_creator_locked_lp != 0,
+            PoolError::NotPermitToDoThisAction
+        );
+
         let lp_to_claim = self
             .creator_locked_lp
             .safe_sub(self.actual_creator_locked_lp)?;
-
-        require!(lp_to_claim != 0, PoolError::NotPermitToDoThisAction);
 
         self.set_creator_claim_lp_fee_status();
 
@@ -192,6 +195,11 @@ impl MeteoraDammMigrationMetadata {
 
         require!(
             !self.is_partner_claim_lp_fee(),
+            PoolError::NotPermitToDoThisAction
+        );
+
+        require!(
+            self.actual_partner_locked_lp != 0,
             PoolError::NotPermitToDoThisAction
         );
 
@@ -214,6 +222,11 @@ impl MeteoraDammMigrationMetadata {
 
         require!(
             !self.is_creator_claim_lp_fee() && !self.is_partner_claim_lp_fee(),
+            PoolError::NotPermitToDoThisAction
+        );
+
+        require!(
+            self.actual_creator_locked_lp != 0,
             PoolError::NotPermitToDoThisAction
         );
 
