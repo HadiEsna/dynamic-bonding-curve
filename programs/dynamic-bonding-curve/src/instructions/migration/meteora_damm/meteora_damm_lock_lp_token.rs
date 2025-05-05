@@ -5,7 +5,7 @@ use crate::{
     utils_math::safe_mul_div_cast_u128,
     *,
 };
-use anchor_spl::token::{self, Mint, Token, TokenAccount};
+use anchor_spl::token::{Mint, Token, TokenAccount};
 use dynamic_amm::accounts::LockEscrow;
 use dynamic_amm::accounts::Pool;
 use dynamic_vault::accounts::Vault;
@@ -32,16 +32,23 @@ pub struct MigrateMeteoraDammLockLpTokenCtx<'info> {
     pub pool_authority: AccountInfo<'info>,
 
     /// CHECK: pool
-    #[account(mut)]
-    pub pool: UncheckedAccount<'info>,
+    #[account(
+        mut,
+        has_one = lp_mint @ PoolError::InvalidMigrationAccounts,
+        has_one = a_vault @ PoolError::InvalidMigrationAccounts,
+        has_one = b_vault @ PoolError::InvalidMigrationAccounts,
+        has_one = a_vault_lp @ PoolError::InvalidMigrationAccounts,
+        has_one = b_vault_lp @ PoolError::InvalidMigrationAccounts,
+    )]
+    pub pool: Box<Account<'info, Pool>>,
 
     /// CHECK: lp_mint
-    pub lp_mint: UncheckedAccount<'info>,
+    pub lp_mint: Box<Account<'info, Mint>>,
 
     #[account(
         mut,
-        has_one=pool,
-        has_one=owner,
+        has_one = pool,
+        has_one = owner,
     )]
     pub lock_escrow: Box<Account<'info, LockEscrow>>,
 
@@ -64,18 +71,24 @@ pub struct MigrateMeteoraDammLockLpTokenCtx<'info> {
     #[account(address = dynamic_amm::ID)]
     pub amm_program: UncheckedAccount<'info>,
 
-    /// CHECK: Vault account for token a. token a of the pool will be deposit / withdraw from this vault account.
-    pub a_vault: UncheckedAccount<'info>,
-    /// CHECK: Vault account for token b. token b of the pool will be deposit / withdraw from this vault account.
-    pub b_vault: UncheckedAccount<'info>,
-    /// CHECK: LP token account of vault A. Used to receive/burn the vault LP upon deposit/withdraw from the vault.
-    pub a_vault_lp: UncheckedAccount<'info>,
-    /// CHECK: LP token account of vault B. Used to receive/burn the vault LP upon deposit/withdraw from the vault.
-    pub b_vault_lp: UncheckedAccount<'info>,
-    /// CHECK: LP token mint of vault a
-    pub a_vault_lp_mint: UncheckedAccount<'info>,
-    /// CHECK: LP token mint of vault b
-    pub b_vault_lp_mint: UncheckedAccount<'info>,
+    /// Vault account for token a. token a of the pool will be deposit / withdraw from this vault account.
+    pub a_vault: Box<Account<'info, Vault>>,
+    /// Vault account for token b. token b of the pool will be deposit / withdraw from this vault account.
+    pub b_vault: Box<Account<'info, Vault>>,
+    /// LP token account of vault A. Used to receive/burn the vault LP upon deposit/withdraw from the vault.
+    #[account(
+        token::mint = a_vault_lp_mint.key()
+    )]
+    pub a_vault_lp: Box<Account<'info, TokenAccount>>,
+    /// LP token account of vault B. Used to receive/burn the vault LP upon deposit/withdraw from the vault.
+    #[account(
+        token::mint = b_vault_lp_mint.key()
+    )]
+    pub b_vault_lp: Box<Account<'info, TokenAccount>>,
+    /// LP token mint of vault a
+    pub a_vault_lp_mint: Box<Account<'info, Mint>>,
+    /// LP token mint of vault b
+    pub b_vault_lp_mint: Box<Account<'info, Mint>>,
 
     /// token_program
     pub token_program: Program<'info, Token>,
@@ -127,7 +140,6 @@ pub fn handle_migrate_meteora_damm_lock_lp_token<'info>(
     let is_creator = ctx.accounts.owner.key() == migration_metadata.pool_creator;
 
     let damm_migration_accounts = DammAccounts {
-        pool: &ctx.accounts.pool,
         lp_mint: &ctx.accounts.lp_mint,
         a_vault: &ctx.accounts.a_vault,
         b_vault: &ctx.accounts.b_vault,
@@ -165,81 +177,16 @@ pub fn handle_migrate_meteora_damm_lock_lp_token<'info>(
 }
 
 struct DammAccounts<'c, 'info> {
-    pool: &'c AccountInfo<'info>,
-    lp_mint: &'c AccountInfo<'info>,
-    a_vault: &'c AccountInfo<'info>,
-    b_vault: &'c AccountInfo<'info>,
-    a_vault_lp: &'c AccountInfo<'info>,
-    b_vault_lp: &'c AccountInfo<'info>,
-    a_vault_lp_mint: &'c AccountInfo<'info>,
-    b_vault_lp_mint: &'c AccountInfo<'info>,
+    lp_mint: &'c Account<'info, Mint>,
+    a_vault: &'c Account<'info, Vault>,
+    b_vault: &'c Account<'info, Vault>,
+    a_vault_lp: &'c Account<'info, TokenAccount>,
+    b_vault_lp: &'c Account<'info, TokenAccount>,
+    a_vault_lp_mint: &'c Account<'info, Mint>,
+    b_vault_lp_mint: &'c Account<'info, Mint>,
 }
 
-#[inline(never)]
-fn validate_damm_accounts(accounts: &DammAccounts<'_, '_>) -> Result<()> {
-    let DammAccounts {
-        pool,
-        lp_mint,
-        a_vault,
-        b_vault,
-        a_vault_lp,
-        b_vault_lp,
-        a_vault_lp_mint,
-        b_vault_lp_mint,
-    } = accounts;
-
-    require!(
-        pool.owner.eq(&dynamic_amm::ID),
-        PoolError::InvalidMigrationAccounts
-    );
-
-    let pool_state = Pool::try_deserialize(&mut pool.data.borrow_mut().as_ref())?;
-
-    require!(
-        pool_state.lp_mint.eq(lp_mint.key),
-        PoolError::InvalidMigrationAccounts
-    );
-
-    require!(
-        pool_state.a_vault.eq(a_vault.key),
-        PoolError::InvalidMigrationAccounts
-    );
-
-    require!(
-        pool_state.b_vault.eq(b_vault.key),
-        PoolError::InvalidMigrationAccounts
-    );
-
-    require!(
-        pool_state.a_vault_lp.eq(a_vault_lp.key),
-        PoolError::InvalidMigrationAccounts
-    );
-
-    require!(
-        pool_state.b_vault_lp.eq(b_vault_lp.key),
-        PoolError::InvalidMigrationAccounts
-    );
-
-    let expected_a_vault_lp_mint = token::accessor::mint(a_vault_lp)?;
-
-    require!(
-        expected_a_vault_lp_mint.eq(a_vault_lp_mint.key),
-        PoolError::InvalidMigrationAccounts
-    );
-
-    let expected_b_vault_lp_mint = token::accessor::mint(b_vault_lp)?;
-
-    require!(
-        expected_b_vault_lp_mint.eq(b_vault_lp_mint.key),
-        PoolError::InvalidMigrationAccounts
-    );
-
-    Ok(())
-}
-
-fn get_damm_virtual_price(accounts: &DammAccounts<'_, '_>) -> Result<u128> {
-    validate_damm_accounts(accounts)?;
-
+fn get_damm_virtual_price(accounts: DammAccounts<'_, '_>) -> Result<u128> {
     let DammAccounts {
         lp_mint,
         a_vault,
@@ -256,43 +203,31 @@ fn get_damm_virtual_price(accounts: &DammAccounts<'_, '_>) -> Result<u128> {
         .try_into()
         .map_err(|_| PoolError::MathOverflow)?;
 
-    let a_vault = Vault::try_deserialize(&mut a_vault.data.borrow_mut().as_ref())?;
-    let b_vault = Vault::try_deserialize(&mut b_vault.data.borrow_mut().as_ref())?;
-
-    let a_vault_lp_amount = token::accessor::amount(a_vault_lp)?;
-    let b_vault_lp_amount = token::accessor::amount(b_vault_lp)?;
-
-    let a_vault_lp_mint_supply =
-        Mint::try_deserialize(&mut a_vault_lp_mint.data.borrow_mut().as_ref())?.supply;
-    let b_vault_lp_mint_supply =
-        Mint::try_deserialize(&mut b_vault_lp_mint.data.borrow_mut().as_ref())?.supply;
-
     let token_a_amount = get_amount_by_share(
         current_time,
         &a_vault,
-        a_vault_lp_amount,
-        a_vault_lp_mint_supply,
+        a_vault_lp.amount,
+        a_vault_lp_mint.supply,
     )
     .ok_or_else(|| PoolError::MathOverflow)?;
 
     let token_b_amount = get_amount_by_share(
         current_time,
         &b_vault,
-        b_vault_lp_amount,
-        b_vault_lp_mint_supply,
+        b_vault_lp.amount,
+        b_vault_lp_mint.supply,
     )
     .ok_or_else(|| PoolError::MathOverflow)?;
 
-    let lp_supply = Mint::try_deserialize(&mut lp_mint.data.borrow_mut().as_ref())?.supply;
-
-    let vp = calculate_constant_product_virtual_price(token_a_amount, token_b_amount, lp_supply)
-        .ok_or_else(|| PoolError::MathOverflow)?;
+    let vp =
+        calculate_constant_product_virtual_price(token_a_amount, token_b_amount, lp_mint.supply)
+            .ok_or_else(|| PoolError::MathOverflow)?;
 
     Ok(vp)
 }
 
 fn exclude_fee_lp_amount(lp_to_lock: u64, accounts: DammAccounts<'_, '_>) -> Result<u64> {
-    let vp = get_damm_virtual_price(&accounts)?;
+    let vp = get_damm_virtual_price(accounts)?;
 
     let vp_delta = vp.safe_sub(BASE_VIRTUAL_PRICE)?;
 
