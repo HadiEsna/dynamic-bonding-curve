@@ -1,19 +1,12 @@
 use crate::{
     const_pda,
-    safe_math::SafeMath,
     state::{MigrationProgress, VirtualPool},
-    utils_math::safe_mul_div_cast_u128,
     *,
 };
 use anchor_spl::token::{Mint, Token, TokenAccount};
 use dynamic_amm::accounts::LockEscrow;
 use dynamic_amm::accounts::Pool;
 use dynamic_vault::accounts::Vault;
-
-use super::utils::{
-    damm_utils::{calculate_constant_product_virtual_price, BASE_VIRTUAL_PRICE},
-    vault_utils::get_amount_by_share,
-};
 
 /// create lock escrow must be before that transaction
 #[derive(Accounts)]
@@ -149,91 +142,20 @@ pub fn handle_migrate_meteora_damm_lock_lp_token<'info>(
         b_vault_lp_mint: &ctx.accounts.b_vault_lp_mint,
     };
 
+    let mut version_migration_metadata = migration_metadata.get_versioned_migration_metadata()?;
+
     let lp_to_lock = match (is_partner, is_creator) {
-        (true, true) => {
-            let lp_to_lock =
-                migration_metadata.validate_and_get_self_partnered_creator_lock_amount()?;
-            let lp_exclude_fee = exclude_fee_lp_amount(lp_to_lock, damm_migration_accounts)?;
-            migration_metadata.lock_as_self_partnered_creator(lp_exclude_fee)?;
-            lp_exclude_fee
-        }
+        (true, true) => version_migration_metadata
+            .validate_and_lock_as_self_partnered_creator(damm_migration_accounts)?,
         (true, false) => {
-            let lp_to_lock = migration_metadata.validate_and_get_partner_lock_amount()?;
-            let lp_exclude_fee = exclude_fee_lp_amount(lp_to_lock, damm_migration_accounts)?;
-            migration_metadata.lock_as_partner(lp_exclude_fee);
-            lp_exclude_fee
+            version_migration_metadata.validate_and_lock_as_partner(damm_migration_accounts)?
         }
         (false, true) => {
-            let lp_to_lock = migration_metadata.validate_and_get_creator_lock_amount()?;
-            let lp_exclude_fee = exclude_fee_lp_amount(lp_to_lock, damm_migration_accounts)?;
-            migration_metadata.lock_as_creator(lp_exclude_fee);
-            lp_exclude_fee
+            version_migration_metadata.validate_and_lock_as_creator(damm_migration_accounts)?
         }
         (false, false) => return Err(PoolError::InvalidOwnerAccount.into()),
     };
 
     ctx.accounts
         .lock(const_pda::pool_authority::BUMP, lp_to_lock)
-}
-
-struct DammAccounts<'c, 'info> {
-    lp_mint: &'c Account<'info, Mint>,
-    a_vault: &'c Account<'info, Vault>,
-    b_vault: &'c Account<'info, Vault>,
-    a_vault_lp: &'c Account<'info, TokenAccount>,
-    b_vault_lp: &'c Account<'info, TokenAccount>,
-    a_vault_lp_mint: &'c Account<'info, Mint>,
-    b_vault_lp_mint: &'c Account<'info, Mint>,
-}
-
-fn get_damm_virtual_price(accounts: DammAccounts<'_, '_>) -> Result<u128> {
-    let DammAccounts {
-        lp_mint,
-        a_vault,
-        b_vault,
-        a_vault_lp,
-        b_vault_lp,
-        a_vault_lp_mint,
-        b_vault_lp_mint,
-        ..
-    } = accounts;
-
-    let current_time: u64 = Clock::get()?
-        .unix_timestamp
-        .try_into()
-        .map_err(|_| PoolError::MathOverflow)?;
-
-    let token_a_amount = get_amount_by_share(
-        current_time,
-        &a_vault,
-        a_vault_lp.amount,
-        a_vault_lp_mint.supply,
-    )
-    .ok_or_else(|| PoolError::MathOverflow)?;
-
-    let token_b_amount = get_amount_by_share(
-        current_time,
-        &b_vault,
-        b_vault_lp.amount,
-        b_vault_lp_mint.supply,
-    )
-    .ok_or_else(|| PoolError::MathOverflow)?;
-
-    let vp =
-        calculate_constant_product_virtual_price(token_a_amount, token_b_amount, lp_mint.supply)
-            .ok_or_else(|| PoolError::MathOverflow)?;
-
-    Ok(vp)
-}
-
-fn exclude_fee_lp_amount(lp_to_lock: u64, accounts: DammAccounts<'_, '_>) -> Result<u64> {
-    let vp = get_damm_virtual_price(accounts)?;
-
-    let vp_delta = vp.safe_sub(BASE_VIRTUAL_PRICE)?;
-
-    let fee_lp_amount = safe_mul_div_cast_u128(lp_to_lock.into(), vp_delta, vp)?
-        .try_into()
-        .map_err(|_| PoolError::MathOverflow)?;
-
-    Ok(lp_to_lock.safe_sub(fee_lp_amount)?)
 }
