@@ -5,7 +5,9 @@
     "test": "anchor build -p dynamic_bonding_curve -- --features local && yarn run ts-mocha --runInBand -p ./tsconfig.json -t 1000000 tests/*.tests.ts"
   },
   "dependencies": {
-    "@coral-xyz/anchor": "^0.31.0"
+    "@coral-xyz/anchor": "^0.31.0",
+    "dotenv": "^8.2.0",
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
     "@coral-xyz/anchor-errors": "^0.31.0",
