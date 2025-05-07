@@ -5,6 +5,7 @@ use crate::{
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, TokenAccount};
 use dynamic_vault::accounts::Vault;
+use num::Zero;
 use static_assertions::const_assert_eq;
 
 use super::utils::{
@@ -84,47 +85,38 @@ impl<'a> MigrationMetadataImplementation<'a> for MigrationMetadataV1<'a> {
     ) -> Result<u64> {
         self.inner
             .common_validate_self_partnered_creator_lock_lp_action()?;
+        self.inner.set_creator_lock_status();
+        self.inner.set_partner_lock_status();
         let total_lp_to_lock = self
             .inner
             .creator_locked_lp
             .safe_add(self.inner.partner_locked_lp)?;
-        self.inner.set_creator_lock_status();
-        self.inner.set_partner_lock_status();
         Ok(total_lp_to_lock)
     }
 
     fn validate_and_claim_as_self_partnered_creator(&mut self) -> Result<u64> {
         self.inner
             .common_validate_self_partnered_creator_claim_lp_action()?;
-
-        let total_lp_to_claim = self.inner.creator_lp.safe_add(self.inner.partner_lp)?;
-        require!(total_lp_to_claim != 0, PoolError::NotPermitToDoThisAction);
-
         self.inner.set_creator_claim_status();
         self.inner.set_partner_claim_status();
-
+        let total_lp_to_claim = self.inner.creator_lp.safe_add(self.inner.partner_lp)?;
+        require!(total_lp_to_claim != 0, PoolError::NotPermitToDoThisAction);
         Ok(total_lp_to_claim)
     }
 
     fn validate_and_claim_as_creator(&mut self) -> Result<u64> {
         self.inner.common_validate_creator_claim_lp_action()?;
-
+        self.inner.set_creator_claim_status();
         let total_lp_to_claim = self.inner.creator_lp;
         require!(total_lp_to_claim != 0, PoolError::NotPermitToDoThisAction);
-
-        self.inner.set_creator_claim_status();
-
         Ok(total_lp_to_claim)
     }
 
     fn validate_and_claim_as_partner(&mut self) -> Result<u64> {
         self.inner.common_validate_partner_claim_lp_action()?;
-
+        self.inner.set_partner_claim_status();
         let total_lp_to_claim = self.inner.partner_lp;
         require!(total_lp_to_claim != 0, PoolError::NotPermitToDoThisAction);
-
-        self.inner.set_partner_claim_status();
-
         Ok(total_lp_to_claim)
     }
 }
@@ -136,17 +128,17 @@ struct MigrationMetadataV2<'a> {
 impl<'a> MigrationMetadataImplementation<'a> for MigrationMetadataV2<'a> {
     fn validate_and_lock_as_creator(&mut self, accounts: DammAccounts<'_, '_>) -> Result<u64> {
         self.inner.common_validate_creator_lock_lp_action()?;
+        self.inner.set_creator_lock_status();
         let actual_lock_amount = exclude_fee_lp_amount(self.inner.creator_locked_lp, accounts)?;
         self.inner.actual_creator_locked_lp = actual_lock_amount;
-        self.inner.set_creator_lock_status();
         Ok(actual_lock_amount)
     }
 
     fn validate_and_lock_as_partner(&mut self, accounts: DammAccounts<'_, '_>) -> Result<u64> {
         self.inner.common_validate_partner_lock_lp_action()?;
+        self.inner.set_partner_lock_status();
         let actual_lock_amount = exclude_fee_lp_amount(self.inner.partner_locked_lp, accounts)?;
         self.inner.actual_partner_locked_lp = actual_lock_amount;
-        self.inner.set_partner_lock_status();
         Ok(actual_lock_amount)
     }
 
@@ -157,10 +149,18 @@ impl<'a> MigrationMetadataImplementation<'a> for MigrationMetadataV2<'a> {
         self.inner
             .common_validate_self_partnered_creator_lock_lp_action()?;
 
+        self.inner.set_creator_lock_status();
+        self.inner.set_partner_lock_status();
+
         let total_lp_to_lock = self
             .inner
             .creator_locked_lp
             .safe_add(self.inner.partner_locked_lp)?;
+
+        // We still set lock status to true even amount is 0
+        if total_lp_to_lock.is_zero() {
+            return Ok(0);
+        }
 
         let actual_lock_amount = exclude_fee_lp_amount(total_lp_to_lock, accounts)?;
 
@@ -170,9 +170,6 @@ impl<'a> MigrationMetadataImplementation<'a> for MigrationMetadataV2<'a> {
 
         self.inner.actual_creator_locked_lp =
             actual_lock_amount.safe_sub(self.inner.actual_partner_locked_lp)?;
-
-        self.inner.set_creator_lock_status();
-        self.inner.set_partner_lock_status();
 
         Ok(actual_lock_amount)
     }
@@ -186,6 +183,9 @@ impl<'a> MigrationMetadataImplementation<'a> for MigrationMetadataV2<'a> {
             self.inner.is_creator_lp_locked() && self.inner.is_partner_lp_locked(),
             PoolError::NotPermitToDoThisAction
         );
+
+        self.inner.set_creator_claim_status();
+        self.inner.set_partner_claim_status();
 
         let suppose_lp_to_claim = self.inner.creator_lp.safe_add(self.inner.partner_lp)?;
 
@@ -206,9 +206,6 @@ impl<'a> MigrationMetadataImplementation<'a> for MigrationMetadataV2<'a> {
 
         require!(actual_lp_to_claim != 0, PoolError::NotPermitToDoThisAction);
 
-        self.inner.set_creator_claim_status();
-        self.inner.set_partner_claim_status();
-
         Ok(actual_lp_to_claim)
     }
 
@@ -221,6 +218,8 @@ impl<'a> MigrationMetadataImplementation<'a> for MigrationMetadataV2<'a> {
             PoolError::NotPermitToDoThisAction
         );
 
+        self.inner.set_creator_claim_status();
+
         let non_locked_fee_lp_to_claim = self
             .inner
             .creator_locked_lp
@@ -229,8 +228,6 @@ impl<'a> MigrationMetadataImplementation<'a> for MigrationMetadataV2<'a> {
         let actual_lp_to_claim = self.inner.creator_lp.safe_add(non_locked_fee_lp_to_claim)?;
 
         require!(actual_lp_to_claim != 0, PoolError::NotPermitToDoThisAction);
-
-        self.inner.set_creator_claim_status();
 
         Ok(actual_lp_to_claim)
     }
@@ -244,6 +241,8 @@ impl<'a> MigrationMetadataImplementation<'a> for MigrationMetadataV2<'a> {
             PoolError::NotPermitToDoThisAction
         );
 
+        self.inner.set_partner_claim_status();
+
         let non_locked_fee_lp_to_claim = self
             .inner
             .partner_locked_lp
@@ -252,8 +251,6 @@ impl<'a> MigrationMetadataImplementation<'a> for MigrationMetadataV2<'a> {
         let actual_lp_to_claim = self.inner.partner_lp.safe_add(non_locked_fee_lp_to_claim)?;
 
         require!(actual_lp_to_claim != 0, PoolError::NotPermitToDoThisAction);
-
-        self.inner.set_partner_claim_status();
 
         Ok(actual_lp_to_claim)
     }
