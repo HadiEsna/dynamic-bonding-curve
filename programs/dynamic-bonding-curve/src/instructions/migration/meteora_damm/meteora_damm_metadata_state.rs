@@ -178,11 +178,17 @@ impl<'a> MigrationMetadataImplementation<'a> for MigrationMetadataV2<'a> {
         self.inner
             .common_validate_self_partnered_creator_claim_lp_action()?;
 
+        let total_lp_to_lock = self
+            .inner
+            .creator_locked_lp
+            .safe_add(self.inner.partner_locked_lp)?;
+
+        let eligible_to_claim = self.inner.is_creator_lp_locked()
+            && self.inner.is_partner_lp_locked()
+            || total_lp_to_lock.is_zero();
+
         // Must lock first to know actual locked lp amount
-        require!(
-            self.inner.is_creator_lp_locked() && self.inner.is_partner_lp_locked(),
-            PoolError::NotPermitToDoThisAction
-        );
+        require!(eligible_to_claim, PoolError::NotPermitToDoThisAction);
 
         self.inner.set_creator_claim_status();
         self.inner.set_partner_claim_status();
@@ -212,11 +218,11 @@ impl<'a> MigrationMetadataImplementation<'a> for MigrationMetadataV2<'a> {
     fn validate_and_claim_as_creator(&mut self) -> Result<u64> {
         self.inner.common_validate_creator_claim_lp_action()?;
 
+        let eligible_to_claim =
+            self.inner.is_creator_lp_locked() || self.inner.creator_locked_lp.is_zero();
+
         // Must lock first to know actual locked lp amount
-        require!(
-            self.inner.is_creator_lp_locked(),
-            PoolError::NotPermitToDoThisAction
-        );
+        require!(eligible_to_claim, PoolError::NotPermitToDoThisAction);
 
         self.inner.set_creator_claim_status();
 
@@ -235,11 +241,11 @@ impl<'a> MigrationMetadataImplementation<'a> for MigrationMetadataV2<'a> {
     fn validate_and_claim_as_partner(&mut self) -> Result<u64> {
         self.inner.common_validate_partner_claim_lp_action()?;
 
+        let eligible_to_claim =
+            self.inner.is_partner_lp_locked() || self.inner.partner_locked_lp.is_zero();
+
         // Must lock first to know actual locked lp amount
-        require!(
-            self.inner.is_partner_lp_locked(),
-            PoolError::NotPermitToDoThisAction
-        );
+        require!(eligible_to_claim, PoolError::NotPermitToDoThisAction);
 
         self.inner.set_partner_claim_status();
 
