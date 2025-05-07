@@ -141,7 +141,7 @@ describe("Build graph curve", () => {
         await fullFlow(context.banksClient, program, config, operator, poolCreator, user, admin, quoteMint);
     });
 
-    it("Graph curve with customizable curve", async () => {
+    it("Graph curve with customizable curve 1", async () => {
         let totalTokenSupply = 1_000_000_000; // 1 billion
         let initialMarketcap = 15; // 15 SOL;
         let migrationMarketcap = 255; // 255 SOL;        
@@ -182,6 +182,60 @@ describe("Build graph curve", () => {
 
         console.log("migrationQuoteThreshold: %d", instructionParams.migrationQuoteThreshold.div(new BN(10 ** tokenQuoteDecimal)).toString());
         assert(instructionParams.migrationQuoteThreshold.div(new BN(10 ** tokenQuoteDecimal)).eq(new BN(75)));
+        const params: CreateConfigParams = {
+            payer: partner,
+            leftoverReceiver: partner.publicKey,
+            feeClaimer: partner.publicKey,
+            quoteMint,
+            instructionParams,
+        };
+        let config = await createConfig(context.banksClient, program, params);
+        await mintSplTokenTo(context.banksClient, user, quoteMint, admin, user.publicKey, instructionParams.migrationQuoteThreshold.toNumber());
+        await fullFlow(context.banksClient, program, config, operator, poolCreator, user, admin, quoteMint);
+    });
+
+
+    it("Graph curve with customizable curve 2", async () => {
+        let totalTokenSupply = 1_000_000_000; // 1 billion
+        let initialMarketcap = 5000; // 5k
+        let migrationMarketcap = 1_000_000; //1M        
+        let tokenBaseDecimal = 6;
+        let tokenQuoteDecimal = 6;
+        let lockedVesting = {
+            amountPerPeriod: new BN(0),
+            cliffDurationFromMigrationTime: new BN(0),
+            frequency: new BN(0),
+            numberOfPeriod: new BN(0),
+            cliffUnlockAmount: new BN(0),
+        };
+        let leftOver = 1_000; // 1k
+        let migrationOption = 0;
+        let quoteMint = await createToken(context.banksClient, admin, admin.publicKey, tokenQuoteDecimal);
+
+        let liquidityWeights = [];
+        for (let i = 0; i < 16; i++) {
+            if (i < 13) {
+                liquidityWeights[i] = (new Decimal(1.2)).pow(new Decimal(i)).toNumber();
+            } else {
+                liquidityWeights[i] = 2.13
+            }
+        }
+        let instructionParams = designGraphCurve(
+            totalTokenSupply,
+            initialMarketcap,
+            migrationMarketcap,
+            migrationOption,
+            tokenBaseDecimal,
+            tokenQuoteDecimal,
+            0,
+            1,
+            lockedVesting,
+            leftOver,
+            liquidityWeights,
+        );
+
+        console.log("migrationQuoteThreshold: %d", instructionParams.migrationQuoteThreshold.div(new BN(10 ** tokenQuoteDecimal)).toString());
+        assert(instructionParams.migrationQuoteThreshold.div(new BN(10 ** tokenQuoteDecimal)).eq(new BN(100_381)));
         const params: CreateConfigParams = {
             payer: partner,
             leftoverReceiver: partner.publicKey,
