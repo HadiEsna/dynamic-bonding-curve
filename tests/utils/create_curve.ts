@@ -124,6 +124,43 @@ export const getFirstCurve = (migrationSqrPrice: BN, migrationAmount: BN, swapAm
             }]
     }
 }
+
+
+export const getTwoCurve = (migrationSqrPrice: BN, initialSqrtPrice: BN, swapAmount: BN, migrationQuoteThreshold: BN) => {
+    let midSqrtPriceDecimal = (new Decimal(migrationSqrPrice.toString()).mul(new Decimal(initialSqrtPrice.toString()))).sqrt();
+    let midSqrtPrice = new BN(midSqrtPriceDecimal.floor().toFixed());
+
+    let p0 = new Decimal(initialSqrtPrice.toString());
+    let p1 = new Decimal(midSqrtPrice.toString());
+    let p2 = new Decimal(migrationSqrPrice.toString());
+
+    let a1 = (new Decimal(1).div(p0)).sub((new Decimal(1).div(p1)))
+    let b1 = (new Decimal(1).div(p1)).sub((new Decimal(1).div(p2)))
+    let c1 = new Decimal(swapAmount.toString());
+
+    let a2 = p1.sub(p0);
+    let b2 = p2.sub(p1);
+    let c2 = new Decimal(migrationQuoteThreshold.toString()).mul(Decimal.pow(2, 128));
+
+    // solve equation to find l0 and l1
+    let l0 = (c1.mul(b2).sub(c2.mul(b1))).div(a1.mul(b2).sub(a2.mul(b1)));
+    let l1 = ((c1.mul(a2)).sub(c2.mul(a1))).div(b1.mul(a2).sub(b2.mul(a1)));
+    return {
+        sqrtStartPrice: initialSqrtPrice,
+        curve:
+            [
+                {
+                    sqrtPrice: midSqrtPrice,
+                    liquidity: new BN(l0.floor().toFixed()),
+                },
+                {
+                    sqrtPrice: migrationSqrPrice,
+                    liquidity: new BN(l1.floor().toFixed()),
+                }
+            ]
+    }
+}
+
 // Δb = L (√P_upper - √P_lower)
 const getDeltaAmountQuote = (
     lowerSqrtPrice: BN,
@@ -350,6 +387,93 @@ export function designCurve(
             sqrtPrice: MAX_SQRT_PRICE,
             liquidity: lastLiquidity,
         });
+    }
+
+    const instructionParams: ConfigParameters = {
+        poolFees: {
+            baseFee: {
+                cliffFeeNumerator: new BN(2_500_000),
+                numberOfPeriod: 0,
+                reductionFactor: new BN(0),
+                periodFrequency: new BN(0),
+                feeSchedulerMode: 0,
+            },
+            dynamicFee: null,
+        },
+        activationType: 0,
+        collectFeeMode,
+        migrationOption,
+        tokenType: 0, // spl_token
+        tokenDecimal: tokenBaseDecimal,
+        migrationQuoteThreshold: migrationQuoteThresholdWithDecimals,
+        partnerLpPercentage: 0,
+        creatorLpPercentage: 0,
+        partnerLockedLpPercentage: 100,
+        creatorLockedLpPercentage: 0,
+        sqrtStartPrice,
+        lockedVesting,
+        migrationFeeOption: 0,
+        tokenSupply: {
+            preMigrationTokenSupply: totalSupply,
+            postMigrationTokenSupply: totalSupply,
+        },
+        creatorTradingFeePercentage,
+        padding0: [],
+        padding: [],
+        curve,
+    };
+    return instructionParams;
+}
+
+
+
+export function designCurveWithInitialMarketCap(
+    totalTokenSupply: number,
+    initialMarketCap: number,
+    migrationMarketCap: number,
+    percentageSupplyOnMigration: number,
+    migrationOption: number,
+    tokenBaseDecimal: number,
+    tokenQuoteDecimal: number,
+    creatorTradingFeePercentage: number,
+    collectFeeMode: number,
+    lockedVesting: LockedVestingParams,
+    leftOver: number,
+): ConfigParameters {
+    let migrationBaseSupply = new BN(totalTokenSupply).mul(new BN(percentageSupplyOnMigration)).div(new BN(100));
+
+    let totalSupply = new BN(totalTokenSupply).mul(new BN(10).pow(new BN(tokenBaseDecimal)));
+    let migrationQuoteThreshold = migrationMarketCap * percentageSupplyOnMigration / 100; // migrationMarketCap * migrationBaseSupply / totalTokenSupply
+    let migrationQuoteThresholdWithDecimals = new BN(migrationQuoteThreshold * 10 ** tokenQuoteDecimal);
+
+    let migrationPrice = new Decimal(migrationQuoteThreshold.toString()).div(new Decimal(migrationBaseSupply.toString()));
+    let migrateSqrtPrice = getSqrtPriceFromPrice(migrationPrice.toString(), tokenBaseDecimal, tokenQuoteDecimal);
+
+    let migrationBaseAmount = getMigrationBaseToken(new BN(migrationQuoteThresholdWithDecimals), migrateSqrtPrice, migrationOption);
+    let totalVestingAmount = getTotalVestingAmount(lockedVesting);
+
+    let totalLeftOver = new BN(leftOver * 10 ** tokenBaseDecimal);
+    let swapAmount = totalSupply.sub(migrationBaseAmount).sub(totalVestingAmount).sub(totalLeftOver);
+
+    let initialSqrtPrice = getSqrtPriceFromMarketCap(initialMarketCap, totalTokenSupply, tokenBaseDecimal, tokenQuoteDecimal);
+
+
+    let { sqrtStartPrice, curve } = getTwoCurve(migrateSqrtPrice, initialSqrtPrice, swapAmount, migrationQuoteThresholdWithDecimals);
+
+
+    let totalDynamicSupply = getTotalSupplyFromCurve(
+        migrationQuoteThresholdWithDecimals,
+        sqrtStartPrice,
+        curve,
+        lockedVesting,
+        migrationOption,
+        totalLeftOver,
+    );
+
+    if (totalDynamicSupply.gt(totalSupply)) {
+        // precision loss is used for leftover
+        let leftOverDelta = totalDynamicSupply.sub(totalSupply);
+        assert(leftOverDelta.lt(totalLeftOver));
     }
 
     const instructionParams: ConfigParameters = {
