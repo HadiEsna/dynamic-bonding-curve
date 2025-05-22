@@ -140,7 +140,7 @@ pub fn handle_swap(
     let current_point = get_current_point(config.activation_type)?;
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
 
-    let swap_result = pool.get_swap_result(
+    let (swap_result, user_pay_input_amount) = pool.get_swap_result(
         &config,
         amount_in,
         fee_mode,
@@ -169,7 +169,7 @@ pub fn handle_swap(
         &ctx.accounts.input_token_account,
         input_vault_account,
         input_program,
-        amount_in,
+        user_pay_input_amount,
     )?;
 
     // send to user
@@ -269,7 +269,7 @@ pub struct SwapParameters2 {
     /// swap mode, should be exact in or partial fill for now
     swap_mode: u8,
     // padding for future use
-    padding: [u64; 4],
+    padding: [u8; 32],
 }
 
 #[repr(u8)]
