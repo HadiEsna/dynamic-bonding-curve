@@ -159,6 +159,18 @@ export type SwapParams = {
   referralTokenAccount: PublicKey | null;
 };
 
+export type SwapParams2 = {
+  config: PublicKey;
+  payer: Keypair;
+  pool: PublicKey;
+  inputTokenMint: PublicKey;
+  outputTokenMint: PublicKey;
+  amountIn: BN;
+  minimumAmountOut: BN;
+  swapMode: number,
+  referralTokenAccount: PublicKey | null;
+};
+
 export async function swap(
   banksClient: BanksClient,
   program: VirtualCurveProgram,
@@ -292,11 +304,17 @@ export async function swap(
 
 
 
-export async function getSwapInstruction(
+export async function swap2(
   banksClient: BanksClient,
   program: VirtualCurveProgram,
-  params: SwapParams
-): Promise<TransactionInstruction> {
+  params: SwapParams2
+): Promise<{
+  pool: PublicKey;
+  computeUnitsConsumed: number;
+  message: any;
+  numInstructions: number;
+  completed: boolean;
+}> {
   const {
     config,
     payer,
@@ -306,6 +324,7 @@ export async function getSwapInstruction(
     amountIn,
     minimumAmountOut,
     referralTokenAccount,
+    swapMode,
   } = params;
 
   const poolAuthority = derivePoolAuthority();
@@ -323,9 +342,16 @@ export async function getSwapInstruction(
     ? [tokenBaseProgram, TOKEN_PROGRAM_ID]
     : [TOKEN_PROGRAM_ID, tokenBaseProgram];
 
+  const preInstructions: TransactionInstruction[] = [];
+  const postInstructions: TransactionInstruction[] = [];
+
+  const preUserQuoteTokenBalance = 0;
+  const preBaseVaultBalance = (
+    await getTokenAccount(banksClient, poolState.baseVault)
+  ).amount;
   const [
-    { ata: inputTokenAccount, ix: _createInputTokenXIx },
-    { ata: outputTokenAccount, ix: _createOutputTokenYIx },
+    { ata: inputTokenAccount, ix: createInputTokenXIx },
+    { ata: outputTokenAccount, ix: createOutputTokenYIx },
   ] = await Promise.all([
     getOrCreateAssociatedTokenAccount(
       banksClient,
@@ -342,9 +368,27 @@ export async function getSwapInstruction(
       outputTokenProgram
     ),
   ]);
+  createInputTokenXIx && preInstructions.push(createInputTokenXIx);
+  createOutputTokenYIx && preInstructions.push(createOutputTokenYIx);
 
-  const instruction = await program.methods
-    .swap({ amountIn, minimumAmountOut })
+  if (inputTokenMint.equals(NATIVE_MINT) && !amountIn.isZero()) {
+    const wrapSOLIx = wrapSOLInstruction(
+      payer.publicKey,
+      inputTokenAccount,
+      BigInt(amountIn.toString())
+    );
+
+    preInstructions.push(...wrapSOLIx);
+  }
+
+  if (outputTokenMint.equals(NATIVE_MINT)) {
+    const unrapSOLIx = unwrapSOLInstruction(payer.publicKey);
+
+    unrapSOLIx && postInstructions.push(unrapSOLIx);
+  }
+
+  const transaction = await program.methods
+    .swap2({ amountIn, minimumAmountOut, swapMode, padding: new Array(32).fill(0) })
     .accountsPartial({
       poolAuthority,
       config,
@@ -359,18 +403,29 @@ export async function getSwapInstruction(
       tokenBaseProgram,
       tokenQuoteProgram: TOKEN_PROGRAM_ID,
       referralTokenAccount,
-    }).remainingAccounts(
-      [
-        {
-          isSigner: false,
-          isWritable: false,
-          pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
-        }
-      ]
-    )
-    .instruction();
+    })
+    .preInstructions(preInstructions)
+    .postInstructions(postInstructions)
+    .transaction();
 
-  return instruction;
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(payer);
+
+  let simu = await banksClient.simulateTransaction(transaction);
+  const consumedCUSwap = Number(simu.meta.computeUnitsConsumed);
+
+  await processTransactionMaybeThrow(banksClient, transaction);
+
+  poolState = await getVirtualPool(banksClient, program, pool);
+  const configs = await getConfig(banksClient, program, config);
+  return {
+    pool,
+    computeUnitsConsumed: consumedCUSwap,
+    message: simu.meta.logMessages,
+    numInstructions: transaction.instructions.length,
+    completed:
+      Number(poolState.quoteReserve) >= Number(configs.migrationQuoteThreshold),
+  };
 }
 
 export async function swapSimulate(
