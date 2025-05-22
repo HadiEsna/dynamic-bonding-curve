@@ -162,8 +162,6 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
         trade_direction,
         current_timestamp,
     )?;
-
-    // send to reserve
     transfer_from_user(
         &ctx.accounts.payer,
         token_in_mint,
@@ -298,7 +296,7 @@ pub fn validate_first_buy_instruction<'c, 'info>(
             && (instruction.data[..8].eq(InitializeVirtualPoolWithSplToken::DISCRIMINATOR)
                 || instruction.data[..8].eq(InitializeVirtualPoolWithToken2022::DISCRIMINATOR))
         {
-            if instruction.accounts[2].pubkey.eq(pool) {
+            if instruction.accounts[5].pubkey.eq(pool) {
                 return Ok(());
             }
         }
