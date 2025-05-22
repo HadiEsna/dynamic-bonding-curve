@@ -85,6 +85,7 @@ describe("Simulate CU swap", () => {
           feePercentage: 0,
           creatorFeePercentage: 0,
         },
+        skipSniperFeeForCreatorFirstBuy: 0,
         padding0: [],
         padding: [],
         curve: curves,

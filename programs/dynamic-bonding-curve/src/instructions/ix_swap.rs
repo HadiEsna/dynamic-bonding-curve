@@ -186,8 +186,6 @@ pub fn handle_swap(
         trade_direction,
         current_timestamp,
     )?;
-
-    // send to reserve
     transfer_from_user(
         &ctx.accounts.payer,
         token_in_mint,
