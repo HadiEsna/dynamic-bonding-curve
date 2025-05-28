@@ -15,7 +15,7 @@ use crate::{
     },
     safe_math::SafeMath,
     state::{
-        CollectFeeMode, IntergerBoolean, LockedVestingConfig, MigrationFeeOption, MigrationOption,
+        CollectFeeMode, IntegerBoolean, LockedVestingConfig, MigrationFeeOption, MigrationOption,
         PoolConfig, TokenType, TokenUpdateAuthorityOption,
     },
     token::{get_token_program_flags, is_supported_quote_mint},
@@ -204,7 +204,7 @@ impl ConfigParameters {
         );
 
         require!(
-            IntergerBoolean::try_from(self.skip_sniper_fee_for_creator_first_buy).is_ok(),
+            IntegerBoolean::try_from(self.skip_sniper_fee_for_creator_first_buy).is_ok(),
             PoolError::InvalidActivationType
         );
 

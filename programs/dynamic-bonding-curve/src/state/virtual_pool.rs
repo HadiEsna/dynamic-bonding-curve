@@ -23,7 +23,7 @@ use crate::{
     PoolError, SwapMode,
 };
 
-use super::{IntergerBoolean, PartnerAndCreatorSplitFee, PoolFeesConfig};
+use super::{IntegerBoolean, PartnerAndCreatorSplitFee, PoolFeesConfig};
 
 /// collect fee mode
 #[repr(u8)]
@@ -549,7 +549,7 @@ impl VirtualPool {
         }
 
         self.update_post_swap(config, old_sqrt_price, current_timestamp)?;
-        self.is_swapped = IntergerBoolean::Yes.into();
+        self.is_swapped = IntegerBoolean::Yes.into();
         Ok(())
     }
 
