@@ -6,7 +6,9 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.0",
-    "@metaplex-foundation/mpl-token-metadata": "^3.4.0"
+    "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
+    "dotenv": "^8.2.0",
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
     "@coral-xyz/anchor-errors": "^0.31.0",
