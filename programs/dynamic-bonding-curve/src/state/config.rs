@@ -68,7 +68,7 @@ impl PoolFeesConfig {
         activation_point: u64,
         is_creator_first_buy: bool,
     ) -> Result<u64> {
-        // skip base fee if it is creator first buy
+        // charge min base fee it is creator first buy
         let base_fee_numerator = if is_creator_first_buy {
             self.base_fee.get_min_base_fee_numerator()?
         } else {
@@ -301,7 +301,7 @@ pub enum MigrationOption {
     TryFromPrimitive,
 )]
 #[repr(u8)]
-pub enum IntergerBoolean {
+pub enum IntegerBoolean {
     No,
     Yes,
 }

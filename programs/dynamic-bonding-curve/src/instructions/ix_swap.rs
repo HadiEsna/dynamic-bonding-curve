@@ -282,10 +282,6 @@ pub fn validate_first_buy_instruction<'c, 'info>(
         return Err(PoolError::InvalidFirstBuyInstruction.into());
     }
 
-    if current_index == 0 {
-        // skip for first instruction
-        return Err(PoolError::InvalidFirstBuyInstruction.into());
-    }
     for i in 0..current_index {
         let instruction = sysvar::instructions::load_instruction_at_checked(
             i.into(),
@@ -296,6 +292,7 @@ pub fn validate_first_buy_instruction<'c, 'info>(
             && (instruction.data[..8].eq(InitializeVirtualPoolWithSplToken::DISCRIMINATOR)
                 || instruction.data[..8].eq(InitializeVirtualPoolWithToken2022::DISCRIMINATOR))
         {
+            // index 5 is virtual_pool
             if instruction.accounts[5].pubkey.eq(pool) {
                 return Ok(());
             }
