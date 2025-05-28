@@ -1,5 +1,3 @@
-> The program is still in the process of being audited.
-
 # Dynamic Bonding Curve
 
 The Dynamic Bonding Curve program is a launch pool protocol that allows any launch partners to enable their users to launch tokens with customizable virtual curves directly on their platforms. With direct integration into Jupiter and other trading platforms, traders can trade these launch tokens immediately across all these integrations. The Virtual Cuvre program provides a few benefits:
@@ -117,3 +115,8 @@ pnpm test
 - migration_fee_option == 3: 2c4cYd4reUYVRAB9kUUkrq55VPyy2FNQ3FDL4o12JXmq
 - migration_fee_option == 4: AkmQWebAwFvWk55wBoCr5D62C6VVDTzi84NJuD9H7cFD
 - migration_fee_option == 5: DbCRBj8McvPYHJG1ukj8RE15h2dCNUdTAESG49XpQ44u
+
+
+## Audits
+
+The program has been audited. You can find the audit report [here](https://docs.meteora.ag/resources/audits#id-4.-dbc-dynamic-bonding-curve).
