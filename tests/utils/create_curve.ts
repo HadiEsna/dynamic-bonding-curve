@@ -1,13 +1,10 @@
 import BN from "bn.js";
-<<<<<<< HEAD
 import {
+  BaseFee,
   ConfigParameters,
   LiquidityDistributionParameters,
   LockedVestingParams,
 } from "../instructions";
-=======
-import { BaseFee, ConfigParameters, LiquidityDistributionParameters, LockedVestingParams } from "../instructions";
->>>>>>> f1ad703 (update unit test)
 import Decimal from "decimal.js";
 import { MAX_SQRT_PRICE, MIN_SQRT_PRICE } from "./constants";
 import { assert } from "chai";
@@ -499,23 +496,11 @@ export function designGraphCurve(
   baseFee: BaseFee
 ): ConfigParameters {
   // 1. finding Pmax and Pmin
-  let pMin = getSqrtPriceFromMarketCap(
-    initialMarketCap,
-    totalTokenSupply,
-    tokenBaseDecimal,
-    tokenQuoteDecimal
-  );
-  let pMax = getSqrtPriceFromMarketCap(
-    migrationMarketCap,
-    totalTokenSupply,
-    tokenBaseDecimal,
-    tokenQuoteDecimal
-  );
+  let pMin = getSqrtPriceFromMarketCap(initialMarketCap, totalTokenSupply, tokenBaseDecimal, tokenQuoteDecimal);
+  let pMax = getSqrtPriceFromMarketCap(migrationMarketCap, totalTokenSupply, tokenBaseDecimal, tokenQuoteDecimal);
 
   // find q^16 = pMax / pMin
-  let priceRatio = new Decimal(pMax.toString()).div(
-    new Decimal(pMin.toString())
-  );
+  let priceRatio = new Decimal(pMax.toString()).div(new Decimal(pMin.toString()));
   let qDecimal = priceRatio.pow(new Decimal(1).div(new Decimal(16)));
 
   // finding all prices
@@ -580,46 +565,45 @@ export function designGraphCurve(
     migrationOption,
     totalLeftover,
   );
-}
 
-let totalSupply = new BN(totalTokenSupply).mul(
-  new BN(10).pow(new BN(tokenBaseDecimal))
-);
-let totalLeftover = new BN(leftOver).mul(
-  new BN(10).pow(new BN(tokenBaseDecimal))
-);
-let totalVestingAmount = getTotalVestingAmount(lockedVesting);
+  if (totalDynamicSupply.gt(totalSupply)) {
+    // precision loss is used for leftover
+    let leftOverDelta = totalDynamicSupply.sub(totalSupply);
+    assert(leftOverDelta.lt(totalLeftover));
+  }
 
-let totalSwapAndMigrationAmount = totalSupply
-  .sub(totalVestingAmount)
-  .sub(totalLeftover);
 
-const instructionParams: ConfigParameters = {
-  poolFees: {
-    baseFee,
-    dynamicFee: null,
-  },
-  activationType: 0,
-  collectFeeMode,
-  migrationOption,
-  tokenType: 0, // spl_token
-  tokenDecimal: tokenBaseDecimal,
-  migrationQuoteThreshold,
-  partnerLpPercentage: 0,
-  creatorLpPercentage: 0,
-  partnerLockedLpPercentage: 100,
-  creatorLockedLpPercentage: 0,
-  sqrtStartPrice: pMin,
-  lockedVesting,
-  migrationFeeOption: 0,
-  tokenSupply: {
-    preMigrationTokenSupply: totalSupply,
-    postMigrationTokenSupply: totalSupply,
-  },
-  creatorTradingFeePercentage,
-  padding0: [],
-  padding: [],
-  curve,
-};
-return instructionParams;
+  const instructionParams: ConfigParameters = {
+    poolFees: {
+      baseFee,
+      dynamicFee: null,
+    },
+    activationType: 0,
+    collectFeeMode,
+    migrationOption,
+    tokenType: 0, // spl_token
+    tokenDecimal: tokenBaseDecimal,
+    migrationQuoteThreshold,
+    partnerLpPercentage: 0,
+    creatorLpPercentage: 0,
+    partnerLockedLpPercentage: 100,
+    creatorLockedLpPercentage: 0,
+    sqrtStartPrice: pMin,
+    lockedVesting,
+    migrationFeeOption: 0,
+    tokenUpdateAuthority: 0,
+    tokenSupply: {
+      preMigrationTokenSupply: totalSupply,
+      postMigrationTokenSupply: totalSupply,
+    },
+    creatorTradingFeePercentage,
+    migrationFee: {
+      feePercentage: 0,
+      creatorFeePercentage: 0,
+    },
+    padding0: [],
+    padding1: [],
+    curve,
+  };
+  return instructionParams;
 }
