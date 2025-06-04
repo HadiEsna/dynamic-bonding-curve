@@ -79,10 +79,10 @@ describe("First buy test", () => {
         instructionParams.skipSniperFeeForCreatorFirstBuy = 1;
         instructionParams.poolFees.baseFee = {
             cliffFeeNumerator: new BN(500_000_000),
-            numberOfPeriod: 157,
-            reductionFactor: new BN(320),
-            periodFrequency: new BN(1),
-            feeSchedulerMode: 1,
+            firstFactor: 157,
+            secondFactor: new BN(320),
+            thirdFactor: new BN(1),
+            baseFeeMode: 1,
         };
 
         const params: CreateConfigParams = {

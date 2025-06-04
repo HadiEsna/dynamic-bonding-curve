@@ -121,7 +121,7 @@ describe("Claim lp on meteora dammm", () => {
             },
             skipSniperFeeForCreatorFirstBuy: 0,
             padding0: [],
-            padding: [],
+            padding1: [],
             curve: curves,
         };
         const params: CreateConfigParams = {
