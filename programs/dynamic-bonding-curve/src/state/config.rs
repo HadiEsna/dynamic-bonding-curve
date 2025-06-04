@@ -205,6 +205,7 @@ impl BaseFeeConfig {
             Err(PoolError::InvalidFeeRateLimiter.into())
         }
     }
+
     pub fn get_base_fee_numerator(
         &self,
         current_point: u64,
@@ -225,6 +226,17 @@ impl BaseFeeConfig {
             trade_direction,
             amount,
         )
+    }
+
+    pub fn get_min_base_fee_numerator(&self) -> Result<u64> {
+        let base_fee_handler = get_base_fee_handler(
+            self.cliff_fee_numerator,
+            self.first_factor,
+            self.second_factor,
+            self.third_factor,
+            self.base_fee_mode,
+        )?;
+        base_fee_handler.get_min_base_fee_numerator()
     }
 }
 

@@ -141,6 +141,7 @@ pub struct VirtualPool {
     pub creator_quote_fee: u64,
     /// check if pool is new or not
     pub is_swapped: u8,
+    pub _padding_0: [u8; 7],
     /// Padding for further use
     pub _padding_1: [u64; 6],
 }
