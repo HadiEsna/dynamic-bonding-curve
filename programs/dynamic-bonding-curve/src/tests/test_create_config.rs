@@ -1,3 +1,5 @@
+use anchor_lang::prelude::Pubkey;
+
 use crate::{
     constants::MAX_SQRT_PRICE,
     params::liquidity_distribution::{
@@ -31,6 +33,7 @@ fn test_create_config() {
         0,
         sqrt_migration_price,
         MigrationOption::MeteoraDamm,
+        &[],
     )
     .unwrap();
 
