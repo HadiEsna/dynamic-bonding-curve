@@ -61,9 +61,25 @@ pub mod fee {
         MIN_FEE_NUMERATOR
     );
 
-    pub const PROTOCOL_FEE_PERCENT: u8 = 20; // 20%
+    pub const PROTOCOL_FEE_BPS: u16 = 750; // 7.5%
+    pub const PROTOCOL_FEE_PERCENTAGE_WHOLE_NUMBER_PART: u8 = 7;
+    pub const PROTOCOL_FEE_PERCENTAGE_DECIMAL_NUMBER_PART: u8 = 50;
 
-    pub const HOST_FEE_PERCENT: u8 = 20; // 20%
+    static_assertions::const_assert_eq!(
+        PROTOCOL_FEE_BPS,
+        PROTOCOL_FEE_PERCENTAGE_WHOLE_NUMBER_PART as u16 * 100
+            + PROTOCOL_FEE_PERCENTAGE_DECIMAL_NUMBER_PART as u16
+    );
+
+    pub const HOST_FEE_BPS: u16 = 2000; // 20%
+    pub const HOST_FEE_PERCENTAGE_WHOLE_NUMBER_PART: u8 = 20;
+    pub const HOST_FEE_PERCENTAGE_DECIMAL_NUMBER_PART: u8 = 0;
+
+    static_assertions::const_assert_eq!(
+        HOST_FEE_BPS,
+        HOST_FEE_PERCENTAGE_WHOLE_NUMBER_PART as u16 * 100
+            + HOST_FEE_PERCENTAGE_DECIMAL_NUMBER_PART as u16
+    );
 }
 
 pub mod seeds {

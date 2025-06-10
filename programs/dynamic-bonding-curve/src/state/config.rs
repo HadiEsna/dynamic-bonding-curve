@@ -6,7 +6,7 @@ use static_assertions::const_assert_eq;
 use crate::{
     base_fee::{get_base_fee_handler, FeeRateLimiter},
     constants::{
-        fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR},
+        fee::{FEE_DENOMINATOR, MAX_BASIS_POINT, MAX_FEE_NUMERATOR},
         MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, MAX_SWALLOW_PERCENTAGE, SWAP_BUFFER_PERCENTAGE,
     },
     params::{
@@ -44,15 +44,23 @@ pub enum BaseFeeMode {
     RateLimiter,
 }
 
+fn percentage_parts_to_bps(whole_number_part: u8, decimal_number_part: u8) -> Result<u16> {
+    Ok(u16::from(whole_number_part)
+        .safe_mul(100)?
+        .safe_add(decimal_number_part.into())?)
+}
+
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
 pub struct PoolFeesConfig {
     pub base_fee: BaseFeeConfig,
     pub dynamic_fee: DynamicFeeConfig,
     pub padding_0: [u64; 5],
-    pub padding_1: [u8; 6],
-    pub protocol_fee_percent: u8,
-    pub referral_fee_percent: u8,
+    pub padding_1: [u8; 4],
+    pub protocol_fee_percentage_decimal_number_part: u8,
+    pub referral_fee_percentage_decimal_number_part: u8,
+    pub protocol_fee_percentage_whole_number_part: u8,
+    pub referral_fee_percentage_whole_number_part: u8,
 }
 
 const_assert_eq!(PoolFeesConfig::INIT_SPACE, 128);
@@ -94,6 +102,20 @@ impl PoolFeesConfig {
         Ok(total_fee_numerator)
     }
 
+    pub fn get_protocol_fee_bps(&self) -> Result<u16> {
+        percentage_parts_to_bps(
+            self.protocol_fee_percentage_whole_number_part,
+            self.protocol_fee_percentage_decimal_number_part,
+        )
+    }
+
+    pub fn get_referral_fee_bps(&self) -> Result<u16> {
+        percentage_parts_to_bps(
+            self.referral_fee_percentage_whole_number_part,
+            self.referral_fee_percentage_decimal_number_part,
+        )
+    }
+
     pub fn get_fee_on_amount(
         &self,
         volatility_tracker: &VolatilityTracker,
@@ -118,8 +140,8 @@ impl PoolFeesConfig {
 
         let protocol_fee = safe_mul_div_cast_u64(
             trading_fee,
-            self.protocol_fee_percent.into(),
-            100,
+            self.get_protocol_fee_bps()?.into(),
+            MAX_BASIS_POINT,
             Rounding::Down,
         )?;
 
@@ -129,8 +151,8 @@ impl PoolFeesConfig {
         let referral_fee = if has_referral {
             safe_mul_div_cast_u64(
                 protocol_fee,
-                self.referral_fee_percent.into(),
-                100,
+                self.get_referral_fee_bps()?.into(),
+                MAX_BASIS_POINT,
                 Rounding::Down,
             )?
         } else {

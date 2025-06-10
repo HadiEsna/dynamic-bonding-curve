@@ -1,7 +1,11 @@
 //! Fees module includes information about fee charges
 use crate::activation_handler::ActivationType;
 use crate::base_fee::get_base_fee_handler;
-use crate::constants::fee::{HOST_FEE_PERCENT, MAX_BASIS_POINT, PROTOCOL_FEE_PERCENT};
+use crate::constants::fee::{
+    HOST_FEE_PERCENTAGE_DECIMAL_NUMBER_PART, HOST_FEE_PERCENTAGE_WHOLE_NUMBER_PART,
+    MAX_BASIS_POINT, PROTOCOL_FEE_PERCENTAGE_DECIMAL_NUMBER_PART,
+    PROTOCOL_FEE_PERCENTAGE_WHOLE_NUMBER_PART,
+};
 use crate::constants::{BASIS_POINT_MAX, BIN_STEP_BPS_DEFAULT, BIN_STEP_BPS_U128_DEFAULT, U24_MAX};
 use crate::error::PoolError;
 use crate::safe_math::SafeMath;
@@ -60,16 +64,26 @@ impl PoolFeeParameters {
         if let Some(dynamic_fee) = dynamic_fee {
             PoolFeesConfig {
                 base_fee: base_fee.to_base_fee_config(),
-                protocol_fee_percent: PROTOCOL_FEE_PERCENT,
-                referral_fee_percent: HOST_FEE_PERCENT,
+                protocol_fee_percentage_whole_number_part:
+                    PROTOCOL_FEE_PERCENTAGE_WHOLE_NUMBER_PART,
+                protocol_fee_percentage_decimal_number_part:
+                    PROTOCOL_FEE_PERCENTAGE_DECIMAL_NUMBER_PART,
+                referral_fee_percentage_whole_number_part: HOST_FEE_PERCENTAGE_WHOLE_NUMBER_PART,
+                referral_fee_percentage_decimal_number_part:
+                    HOST_FEE_PERCENTAGE_DECIMAL_NUMBER_PART,
                 dynamic_fee: dynamic_fee.to_dynamic_fee_config(),
                 ..Default::default()
             }
         } else {
             PoolFeesConfig {
                 base_fee: base_fee.to_base_fee_config(),
-                protocol_fee_percent: PROTOCOL_FEE_PERCENT,
-                referral_fee_percent: HOST_FEE_PERCENT,
+                protocol_fee_percentage_whole_number_part:
+                    PROTOCOL_FEE_PERCENTAGE_WHOLE_NUMBER_PART,
+                protocol_fee_percentage_decimal_number_part:
+                    PROTOCOL_FEE_PERCENTAGE_DECIMAL_NUMBER_PART,
+                referral_fee_percentage_whole_number_part: HOST_FEE_PERCENTAGE_WHOLE_NUMBER_PART,
+                referral_fee_percentage_decimal_number_part:
+                    HOST_FEE_PERCENTAGE_DECIMAL_NUMBER_PART,
                 ..Default::default()
             }
         }
