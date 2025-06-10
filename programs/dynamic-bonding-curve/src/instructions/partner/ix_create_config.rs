@@ -5,10 +5,7 @@ use static_assertions::const_assert_eq;
 
 use crate::{
     activation_handler::ActivationType,
-    constants::{
-        fee::FEE_DENOMINATOR, seeds::DAMM_V2_WITH_DYNAMIC_CONFIG_PREDEFINED_PARAMETERS_PREFIX,
-        MAX_CURVE_POINT, MAX_SQRT_PRICE, MIN_SQRT_PRICE,
-    },
+    constants::{fee::FEE_DENOMINATOR, MAX_CURVE_POINT, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     params::{
         fee_parameters::{to_bps, PoolFeeParameters},
         liquidity_distribution::{

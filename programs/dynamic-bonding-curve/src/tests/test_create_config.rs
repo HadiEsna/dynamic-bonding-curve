@@ -1,5 +1,3 @@
-use anchor_lang::prelude::Pubkey;
-
 use crate::{
     constants::MAX_SQRT_PRICE,
     params::liquidity_distribution::{

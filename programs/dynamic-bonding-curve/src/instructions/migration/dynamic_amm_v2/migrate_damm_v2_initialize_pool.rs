@@ -1,14 +1,11 @@
-use std::u64;
-
 use anchor_lang::solana_program::{program::invoke, system_instruction};
 use anchor_spl::{
     token_2022::{set_authority, spl_token_2022::instruction::AuthorityType, SetAuthority},
     token_interface::{TokenAccount, TokenInterface},
 };
 use damm_v2::types::{
-    AddLiquidityParameters, BaseFeeConfig, BaseFeeParameters, DynamicFeeConfig,
-    DynamicFeeParameters, InitializeCustomizablePoolParameters, InitializePoolParameters,
-    PoolFeeParameters,
+    AddLiquidityParameters, BaseFeeConfig, DynamicFeeConfig, DynamicFeeParameters,
+    InitializeCustomizablePoolParameters, InitializePoolParameters, PoolFeeParameters,
 };
 use ruint::aliases::U512;
 
@@ -259,6 +256,24 @@ impl<'info> MigrateDammV2Ctx<'info> {
         Ok(())
     }
 
+    fn fund_pool_creator_authority(&self) -> Result<()> {
+        // Send some lamport to pool authority to pay rent fee?
+        msg!("transfer lamport to pool_authority");
+        invoke(
+            &system_instruction::transfer(
+                &self.payer.key(),
+                &self.pool_authority.key(),
+                50_000_000, // TODO calculate correct lamport here
+            ),
+            &[
+                self.payer.to_account_info(),
+                self.pool_authority.to_account_info(),
+                self.system_program.to_account_info(),
+            ],
+        )?;
+        Ok(())
+    }
+
     fn create_pool_with_dynamic_config(
         &self,
         pool_config: AccountInfo<'info>,
@@ -329,6 +344,8 @@ impl<'info> MigrateDammV2Ctx<'info> {
             referral_fee_percent: crate::constants::damm_v2::CUSTOMIZABLE_HOST_FEE_PERCENT,
         };
 
+        self.fund_pool_creator_authority()?;
+
         damm_v2::cpi::initialize_pool_with_dynamic_config(
             CpiContext::new_with_signer(
                 self.amm_program.to_account_info(),
@@ -336,7 +353,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
                     creator: self.pool_authority.to_account_info(),
                     position_nft_mint: self.first_position_nft_mint.to_account_info(),
                     position_nft_account: self.first_position_nft_account.to_account_info(),
-                    payer: self.payer.to_account_info(),
+                    payer: self.pool_authority.to_account_info(),
                     config: pool_config.to_account_info(),
                     pool_authority: self.damm_pool_authority.to_account_info(),
                     pool: self.pool.to_account_info(),
@@ -382,20 +399,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
     ) -> Result<()> {
         let pool_authority_seeds = pool_authority_seeds!(bump);
 
-        // Send some lamport to pool authority to pay rent fee?
-        msg!("transfer lamport to pool_authority");
-        invoke(
-            &system_instruction::transfer(
-                &self.payer.key(),
-                &self.pool_authority.key(),
-                50_000_000, // TODO calculate correct lamport here
-            ),
-            &[
-                self.payer.to_account_info(),
-                self.pool_authority.to_account_info(),
-                self.system_program.to_account_info(),
-            ],
-        )?;
+        self.fund_pool_creator_authority()?;
 
         damm_v2::cpi::initialize_pool(
             CpiContext::new_with_signer(
@@ -613,10 +617,16 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
 
     let migration_option = MigrationOption::try_from(config.migration_option)
         .map_err(|_| PoolError::InvalidMigrationOption)?;
-    require!(
-        migration_option == MigrationOption::DammV2,
-        PoolError::InvalidMigrationOption
-    );
+
+    match migration_option {
+        MigrationOption::DammV2 | MigrationOption::DammV2WithDynamicConfig => {
+            // Allowed
+        }
+        _ => {
+            return Err(PoolError::InvalidMigrationOption.into());
+        }
+    }
+
     let initial_quote_vault_amount = ctx.accounts.quote_vault.amount;
     let initial_base_vault_amount = ctx.accounts.base_vault.amount;
 

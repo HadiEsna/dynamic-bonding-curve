@@ -83,7 +83,7 @@ pub mod seeds {
     pub const VIRTUAL_POOL_METADATA_PREFIX: &[u8] = b"virtual_pool_metadata";
     pub const BASE_LOCKER_PREFIX: &[u8] = b"base_locker";
     pub const DAMM_V2_WITH_DYNAMIC_CONFIG_PREDEFINED_PARAMETERS_PREFIX: &[u8] =
-        b"damm_v2_with_dynamic_config_predefined_parameters";
+        b"damm_v2_param_value";
 }
 
 pub mod damm_v2 {
