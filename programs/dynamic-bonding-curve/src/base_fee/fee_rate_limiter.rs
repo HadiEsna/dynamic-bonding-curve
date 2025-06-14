@@ -6,7 +6,7 @@ use crate::{
     },
     params::{fee_parameters::to_numerator, swap::TradeDirection},
     safe_math::SafeMath,
-    state::CollectFeeMode,
+    state::{CollectFeeMode, PoolFeesConfig},
     u128x128_math::Rounding,
     utils_math::safe_mul_div_cast_u64,
     PoolError,
@@ -74,6 +74,126 @@ impl FeeRateLimiter {
             to_numerator(self.fee_increment_bps.into(), FEE_DENOMINATOR.into())?;
         let max_index = delta_numerator.safe_div(fee_increment_numerator)?;
         Ok(max_index)
+    }
+
+    // TODO: test function
+    pub fn get_max_out_amount_with_min_base_fee(&self) -> Result<u64> {
+        self.get_excluded_fee_amount(self.reference_amount)
+    }
+
+    // TODO: that is just for testing, need to remove it
+    // TODO check overflow
+    pub fn get_included_fee_amount(&self, excluded_fee_amount: u64) -> Result<u64> {
+        let excluded_fee_reference_amount = self.get_excluded_fee_amount(self.reference_amount)?;
+        if excluded_fee_amount <= excluded_fee_reference_amount {
+            let included_fee_amount = PoolFeesConfig::get_included_fee_amount(
+                self.cliff_fee_numerator,
+                excluded_fee_amount,
+            )?;
+            return Ok(included_fee_amount);
+        }
+        let max_index = self.get_max_index()?;
+        let max_index_input_amount = (max_index) * self.reference_amount;
+        let max_index_output_amount = self.get_excluded_fee_amount(max_index_input_amount)?;
+
+        let one = U256::from(1);
+        let two = U256::from(2);
+        let four = U256::from(4);
+        let included_fee_amount = if excluded_fee_amount <= max_index_output_amount {
+            // find a firstly
+            // d: fee denominator
+            // ex: excluded_fee_amount
+            // input_amount = x0 + (a * x0)
+            // fee = x0 * (c + c*a + i*a*(a+1)/2) / denominator
+            // => ex = x0 * (a+1 - (c + c*a + i*a*(a+1)/2) / d)
+            // solve equation
+            // x * a^2 - y * a + z = 0
+            // x = i*x0/2
+            // y = x0 * d - x0 * c - x0 * i / 2
+            // z = ex * d + x0 * c - x0 * d
+            // a = (y + sqrt(y^2 - 4xz)) / 2A
+            let i = U256::from(to_numerator(
+                self.fee_increment_bps.into(),
+                FEE_DENOMINATOR.into(),
+            )?);
+            let x0 = U256::from(self.reference_amount);
+            let d = U256::from(FEE_DENOMINATOR);
+            let c = U256::from(self.cliff_fee_numerator);
+            let x = i * x0 / two;
+            let y = x0 * d - x0 * c - x0 * i / two;
+            let ex = U256::from(excluded_fee_amount);
+            let a = if ex * d + x0 * c > x0 * d {
+                let z = ex * d + x0 * c - x0 * d;
+                let a = (y - sqrt(y * y - four * x * z)) / (two * x); // check it again, why sub, not add
+                a
+            } else {
+                U256::ZERO
+            };
+            // println!("a {}", a);
+            // find b, round down
+            let first_amount =
+                x0 * (a + one) - (x0 * (c + c * a + i * a * (a + one) / two) + d - one) / d;
+            // let first_amount =
+            //     U256::from(self.get_excluded_fee_amount((x0 * (a + one)).try_into().unwrap())?);
+            // round up
+            let second_amount = ex - first_amount; // TODO why need add four
+                                                   // fee on second_amount = b * (c + i * (a+1))
+                                                   // second_amount = b - b * (c + i * (a+1)) / d
+                                                   // b = second_amount * d / (d - c - i * (a+1))
+                                                   // round up
+            let b = second_amount * d / (d - c - i * (a + one));
+
+            // let b = U256::from(PoolFeesConfig::get_included_fee_amount(
+            //     (c + i * (a + one)).try_into().unwrap(),
+            //     second_amount.try_into().unwrap(),
+            // )?);
+            // println!(
+            //     "first_amount {} second_amount {} b {}",
+            //     first_amount, second_amount, b
+            // );
+
+            // {
+            //     // debug
+            //     let fee = b * (c + i * (a + one)) / d;
+            //     println!("b {} fee {} out {}", b, fee, b - fee);
+            // }
+
+            let included_fee_amount = (a + one) * x0 + b;
+            // println!("included_fee_amount {}", included_fee_amount);
+            let mut included_fee_amount = included_fee_amount.try_into().unwrap();
+
+            // make some adjustment
+            let mut index = 0;
+            loop {
+                let output_amount = self.get_excluded_fee_amount(included_fee_amount)?;
+                if output_amount < excluded_fee_amount {
+                    let diff = U256::from(excluded_fee_amount - output_amount);
+                    let b_delta = diff * d / (d - c - i * (a + one));
+                    let b_delta: u64 = b_delta.try_into().unwrap();
+                    if b_delta == 0 {
+                        included_fee_amount += 1;
+                    } else {
+                        included_fee_amount = included_fee_amount + b_delta;
+                    }
+                    index += 1;
+                } else {
+                    println!("index kk {}", index);
+                    break;
+                }
+            }
+
+            included_fee_amount
+        } else {
+            0
+        };
+        Ok(included_fee_amount)
+    }
+    // TODO: that is just for testing, need to remove it
+    pub fn get_excluded_fee_amount(&self, included_fee_amount: u64) -> Result<u64> {
+        let fee_numerator = self.get_fee_numerator_from_amount(included_fee_amount)?;
+        let (excluded_fee_amount, _fee) =
+            PoolFeesConfig::get_excluded_fee_amount(fee_numerator, included_fee_amount)?;
+        Ok(excluded_fee_amount)
     }
 
     // export function for testing
@@ -195,4 +315,24 @@ impl BaseFeeHandler for FeeRateLimiter {
             Ok(self.cliff_fee_numerator)
         }
     }
+}
+
+// TODO fix this
+fn sqrt(y: U256) -> U256 {
+    let two = U256::from(2);
+    let one = U256::from(1);
+    let mut z: U256;
+    if y > U256::from(3) {
+        z = y;
+        let mut x = y / two + one;
+        while x < z {
+            z = x;
+            x = (y / x + x) / two;
+        }
+    } else if y != U256::ZERO {
+        z = U256::from(1);
+    } else {
+        z = U256::from(0);
+    };
+    z
 }

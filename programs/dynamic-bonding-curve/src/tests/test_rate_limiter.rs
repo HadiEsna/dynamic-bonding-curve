@@ -221,3 +221,101 @@ fn test_rate_limiter_base_fee_numerator() {
         assert!(fee_numerator > rate_limiter.cliff_fee_numerator);
     }
 }
+
+#[test]
+fn test_get_included_fee_amount_rate_limiter() {
+    let base_fee_bps = 100u64; // 1%
+    let reference_amount = 1_000_000_000; // 1 sol
+    let fee_increment_bps = 100; // 1%
+    let cliff_fee_numerator = to_numerator(base_fee_bps.into(), FEE_DENOMINATOR.into()).unwrap();
+    let rate_limiter = FeeRateLimiter {
+        cliff_fee_numerator,
+        reference_amount,         // 1SOL
+        max_limiter_duration: 60, // 60 seconds
+        fee_increment_bps,        // 10 bps
+    };
+
+    // 1. included_fee_amount < reference_amount
+    {
+        let included_fee_amount = reference_amount / 2;
+        let excluded_fee_amount = rate_limiter
+            .get_excluded_fee_amount(included_fee_amount)
+            .unwrap();
+        let inverse_amount = rate_limiter
+            .get_included_fee_amount(excluded_fee_amount)
+            .unwrap();
+        assert_eq!(inverse_amount, included_fee_amount);
+    }
+
+    // 2. included_fee_amount = reference_amount
+    {
+        let included_fee_amount = reference_amount;
+        let excluded_fee_amount = rate_limiter
+            .get_excluded_fee_amount(included_fee_amount)
+            .unwrap();
+        let inverse_amount = rate_limiter
+            .get_included_fee_amount(excluded_fee_amount)
+            .unwrap();
+        assert_eq!(inverse_amount, included_fee_amount);
+    }
+
+    // 3. included_fee_amount = reference_amount + reference_amount / 2
+    // for index in 1..1000 {
+    //     let included_fee_amount = reference_amount * index + reference_amount / 2;
+    //     let excluded_fee_amount = rate_limiter
+    //         .get_excluded_fee_amount(included_fee_amount)
+    //         .unwrap();
+
+    //     let inverse_amount = rate_limiter
+    //         .get_included_fee_amount(excluded_fee_amount)
+    //         .unwrap();
+
+    //     println!(
+    //         "index {} inverse_amount {} included_fee_amount {}",
+    //         index, inverse_amount, included_fee_amount
+    //     );
+    //     assert!(inverse_amount >= included_fee_amount);
+    //     if inverse_amount != included_fee_amount {
+    //         assert!(inverse_amount <= included_fee_amount + 100);
+    //     }
+    // }
+
+    for index in 1..40 {
+        let excluded_fee_amount = reference_amount * index + reference_amount / 2;
+
+        let inverse_amount = rate_limiter
+            .get_included_fee_amount(excluded_fee_amount)
+            .unwrap();
+
+        let output_amount = rate_limiter
+            .get_excluded_fee_amount(inverse_amount)
+            .unwrap();
+
+        println!(
+            "index {} output_amount {} excluded_fee_amount {}",
+            index, output_amount, excluded_fee_amount
+        );
+        assert!(output_amount >= excluded_fee_amount);
+    }
+    //     if inverse_amount != included_fee_amount {
+    //         assert!(inverse_amount <= included_fee_amount + 100);
+    //     }
+    // }
+    // {
+    //     let included_fee_amount = reference_amount * 1 + reference_amount / 2;
+    //     let excluded_fee_amount = rate_limiter
+    //         .get_excluded_fee_amount(included_fee_amount)
+    //         .unwrap();
+
+    //     println!(
+    //         "included_fee_amount {} excluded_fee_amount {}",
+    //         included_fee_amount, excluded_fee_amount
+    //     );
+    //     let inverse_amount = rate_limiter
+    //         .get_included_fee_amount(excluded_fee_amount)
+    //         .unwrap();
+    //     if inverse_amount != included_fee_amount {
+    //         assert!(inverse_amount == included_fee_amount + 1);
+    //     }
+    // }
+}
