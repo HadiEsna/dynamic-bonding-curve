@@ -1,6 +1,5 @@
 use crate::math::safe_math::SafeMath;
 use crate::state::MigrationProgress;
-use crate::EvtCurveComplete;
 use crate::{
     activation_handler::get_current_point,
     const_pda,
@@ -8,7 +7,7 @@ use crate::{
     state::fee::FeeMode,
     state::{PoolConfig, VirtualPool},
     token::{transfer_from_pool, transfer_from_user},
-    EvtSwap, PoolError,
+    EvtCurveComplete, EvtCurveProgress, EvtSwap, PoolError,
 };
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::{
@@ -225,6 +224,11 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
         has_referral,
         amount_in,
         current_timestamp,
+    });
+
+    emit_cpi!(EvtCurveProgress {
+        quote_reserve: pool.quote_reserve,
+        migration_quote_threshold: config.migration_quote_threshold,
     });
 
     if pool.is_curve_complete(config.migration_quote_threshold) {

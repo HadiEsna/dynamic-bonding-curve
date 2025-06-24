@@ -87,6 +87,12 @@ pub struct EvtSwap {
 }
 
 #[event]
+pub struct EvtCurveProgress {
+    pub quote_reserve: u64,
+    pub migration_quote_threshold: u64,
+}
+
+#[event]
 pub struct EvtCurveComplete {
     pub pool: Pubkey,
     pub config: Pubkey,
