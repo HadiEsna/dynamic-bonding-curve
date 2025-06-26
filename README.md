@@ -45,7 +45,7 @@ Partner can specify these parameters when they create a configuration on all the
 - `migration_fee_option`: allow partner to choose a fee option on graduated pool (currently support 0.25% | 0.3% | 1% | 2% | 4% | 6%)
 - `token_supply`: when the fields are specified, token will have fixed supply in pre and post migration, leftover will be returned to leftover_receiver (configured in config key)
 - `creator_trading_fee_percentage`: the percentage of trading fee and surplus pool creator can get for a pool
-- `token_update_authority`: the option to allow creator to update token metadata, 0: mutable, 1: immutable
+- `token_update_authority`: the option to allow creator/partner to config token authority, 0: creator can update token metadata, 1: immutable, 2: partner can update token metadata, 3: creator can update token metadata and mint token, 4: partner can update token metadata and mint token.
 - `migration_fee`: the option to allow partner can config migration fee from migration quote threshold. Migration fee can be shared between partner and creator
 - `sqrt_start_price`: square root of min price in the bonding curve for the virtual pools.
 - `curve`: an array of square price and liquidity, that defines the liquidity distribution for the virtual pools.
