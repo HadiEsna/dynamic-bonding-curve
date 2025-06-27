@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+## dynamic_bonding_curve [0.1.4] [PR #100](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/100)
+### Added
+- Allow more options for token authority configuration: `PartnerUpdateAuthority`, `CreatorUpdateAndMintAuthority` and `PartnerUpdateAndMintAuthority`
+
+
 ## dynamic_bonding_curve [0.1.3] [PR #89](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/89)
 ### Added
 - Allow partner to config another mode for base fee, called rate limiter. With the mode is enable, fee slope will increase if user buy with higher amount. The rate limiter mode is only available if collect fee mode is in quote token only, and when user buy token (not sell). Rate limiter doesn't allow user to send multiple swap instructions (or CPI) to the same pool in 1 transaction
@@ -43,7 +48,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Config state add a new field: `token_update_authority`, `migration_fee_percentage` and `creator_migration_fee_percentage` 
-
 
 ## dynamic_bonding_curve [0.1.1] [PR #71](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/71)
 
