@@ -120,8 +120,8 @@ pub mod dynamic_bonding_curve {
     }
 
     /// TRADING BOTS FUNCTIONS ////
-    pub fn swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> {
-        instructions::handle_swap(ctx, params, SwapMode::ExactIn)
+    pub fn swap(ctx: Context<SwapCtx>, params: SwapExactInParameters) -> Result<()> {
+        instructions::handle_swap_exact_in(ctx, params, SwapMode::ExactIn)
     }
 
     pub fn swap2(ctx: Context<SwapCtx>, params: SwapParameters2) -> Result<()> {

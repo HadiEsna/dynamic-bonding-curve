@@ -1,6 +1,5 @@
 use crate::math::safe_math::SafeMath;
 use crate::state::MigrationProgress;
-use crate::EvtCurveComplete;
 use crate::{
     activation_handler::get_current_point,
     const_pda,
@@ -10,6 +9,7 @@ use crate::{
     token::{transfer_from_pool, transfer_from_user},
     EvtSwap, PoolError,
 };
+use crate::{EvtCurveComplete, EvtSwapExactOut};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::{
     get_processed_sibling_instruction, get_stack_height,
@@ -21,7 +21,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use crate::instruction::Swap as SwapInstruction;
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
-pub struct SwapParameters {
+pub struct SwapExactInParameters {
     amount_in: u64,
     minimum_amount_out: u64,
 }
@@ -88,13 +88,12 @@ impl<'info> SwapCtx<'info> {
     }
 }
 
-// TODO impl swap exact out
-pub fn handle_swap(
+pub fn handle_swap_exact_in(
     ctx: Context<SwapCtx>,
-    params: SwapParameters,
+    params: SwapExactInParameters,
     swap_mode: SwapMode,
 ) -> Result<()> {
-    let SwapParameters {
+    let SwapExactInParameters {
         amount_in,
         minimum_amount_out,
     } = params;
@@ -159,7 +158,7 @@ pub fn handle_swap(
 
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
 
-    let (swap_result, user_pay_input_amount) = pool.get_swap_result(
+    let (swap_result, user_pay_input_amount) = pool.get_swap_exact_in_result(
         &config,
         amount_in,
         fee_mode,
@@ -279,15 +278,206 @@ pub fn handle_swap(
     Ok(())
 }
 
+pub fn handle_swap_exact_out(
+    ctx: Context<SwapCtx>,
+    amount_out: u64,
+    maximum_amount_in: u64,
+) -> Result<()> {
+    let trade_direction = ctx.accounts.get_trade_direction();
+    let (
+        token_in_mint,
+        token_out_mint,
+        input_vault_account,
+        output_vault_account,
+        input_program,
+        output_program,
+    ) = match trade_direction {
+        TradeDirection::BaseToQuote => (
+            &ctx.accounts.base_mint,
+            &ctx.accounts.quote_mint,
+            &ctx.accounts.base_vault,
+            &ctx.accounts.quote_vault,
+            &ctx.accounts.token_base_program,
+            &ctx.accounts.token_quote_program,
+        ),
+        TradeDirection::QuoteToBase => (
+            &ctx.accounts.quote_mint,
+            &ctx.accounts.base_mint,
+            &ctx.accounts.quote_vault,
+            &ctx.accounts.base_vault,
+            &ctx.accounts.token_quote_program,
+            &ctx.accounts.token_base_program,
+        ),
+    };
+
+    require!(amount_out > 0, PoolError::AmountIsZero);
+
+    let has_referral = ctx.accounts.referral_token_account.is_some();
+
+    let config = ctx.accounts.config.load()?;
+    let mut pool = ctx.accounts.pool.load_mut()?;
+
+    let current_point = get_current_point(config.activation_type)?;
+
+    if let Ok(rate_limiter) = config.pool_fees.base_fee.get_fee_rate_limiter() {
+        if rate_limiter.is_rate_limiter_applied(
+            current_point,
+            pool.activation_point,
+            trade_direction,
+        )? {
+            validate_single_swap_instruction(&ctx.accounts.pool.key(), ctx.remaining_accounts)?;
+        }
+    }
+
+    require!(
+        !pool.is_curve_complete(config.migration_quote_threshold),
+        PoolError::PoolIsCompleted
+    );
+
+    // update for dynamic fee reference
+    let current_timestamp = Clock::get()?.unix_timestamp as u64;
+    pool.update_pre_swap(&config, current_timestamp)?;
+
+    let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
+
+    let swap_result = pool.get_swap_exact_out_result(
+        &config,
+        amount_out,
+        fee_mode,
+        trade_direction,
+        current_point,
+    )?;
+
+    let included_fee_in_amount = if fee_mode.fees_on_input {
+        swap_result
+            .actual_input_amount
+            .safe_add(swap_result.trading_fee)?
+            .safe_add(swap_result.protocol_fee)?
+            .safe_add(swap_result.referral_fee)?
+    } else {
+        swap_result.actual_input_amount
+    };
+
+    require!(
+        included_fee_in_amount <= maximum_amount_in,
+        PoolError::ExceededSlippage
+    );
+
+    pool.apply_swap_result(
+        &config,
+        &swap_result,
+        fee_mode,
+        trade_direction,
+        current_timestamp,
+    )?;
+
+    // send to reserve
+    transfer_from_user(
+        &ctx.accounts.payer,
+        token_in_mint,
+        &ctx.accounts.input_token_account,
+        input_vault_account,
+        input_program,
+        included_fee_in_amount,
+    )?;
+
+    // send to user
+    transfer_from_pool(
+        ctx.accounts.pool_authority.to_account_info(),
+        token_out_mint,
+        output_vault_account,
+        &ctx.accounts.output_token_account,
+        output_program,
+        swap_result.output_amount,
+        const_pda::pool_authority::BUMP,
+    )?;
+
+    // send to referral
+    if let Some(referral_token_account) = ctx.accounts.referral_token_account.as_ref() {
+        if fee_mode.fees_on_base_token {
+            transfer_from_pool(
+                ctx.accounts.pool_authority.to_account_info(),
+                &ctx.accounts.base_mint,
+                &ctx.accounts.base_vault,
+                referral_token_account,
+                &ctx.accounts.token_base_program,
+                swap_result.referral_fee,
+                const_pda::pool_authority::BUMP,
+            )?;
+        } else {
+            transfer_from_pool(
+                ctx.accounts.pool_authority.to_account_info(),
+                &ctx.accounts.quote_mint,
+                &ctx.accounts.quote_vault,
+                referral_token_account,
+                &ctx.accounts.token_quote_program,
+                swap_result.referral_fee,
+                const_pda::pool_authority::BUMP,
+            )?;
+        }
+    }
+
+    emit_cpi!(EvtSwapExactOut {
+        pool: ctx.accounts.pool.key(),
+        config: ctx.accounts.config.key(),
+        trade_direction: trade_direction.into(),
+        maximum_amount_in,
+        amount_out,
+        swap_result,
+        has_referral,
+        current_timestamp,
+    });
+
+    if pool.is_curve_complete(config.migration_quote_threshold) {
+        ctx.accounts.base_vault.reload()?;
+        // validate if base reserve is enough token for migration
+        let base_vault_balance = ctx.accounts.base_vault.amount;
+
+        let required_base_balance = config
+            .migration_base_threshold
+            .safe_add(pool.get_protocol_and_trading_base_fee()?)?
+            .safe_add(
+                config
+                    .locked_vesting_config
+                    .to_locked_vesting_params()
+                    .get_total_amount()?,
+            )?;
+
+        require!(
+            base_vault_balance >= required_base_balance,
+            PoolError::InsufficientLiquidityForMigration
+        );
+
+        // set finish time and migration progress
+        pool.finish_curve_timestamp = current_timestamp;
+
+        let locked_vesting_params = config.locked_vesting_config.to_locked_vesting_params();
+        if locked_vesting_params.has_vesting() {
+            pool.set_migration_progress(MigrationProgress::PostBondingCurve.into());
+        } else {
+            pool.set_migration_progress(MigrationProgress::LockedVesting.into());
+        }
+
+        emit_cpi!(EvtCurveComplete {
+            pool: ctx.accounts.pool.key(),
+            config: ctx.accounts.config.key(),
+            base_reserve: pool.base_reserve,
+            quote_reserve: pool.quote_reserve,
+        })
+    }
+
+    Ok(())
+}
+
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct SwapParameters2 {
-    /// amount in
-    amount_in: u64,
-    /// minimum amount out
-    minimum_amount_out: u64,
-    /// swap mode, should be exact in or partial fill for now
+    /// When it's exact in, partial fill or strict partial fill mode, this will be amount_in. When it's exact out, this will be amount_out
+    amount_0: u64,
+    /// When it's exact in, partial fill or strict partial fill mode, this will be minimum_amount_out. When it's exact out, this will be maximum_amount_in
+    amount_1: u64,
+    /// Swap mode, refer [SwapMode]
     swap_mode: u8,
-    // padding for future use
+    // Padding for future use
     padding: [u8; 32],
 }
 
@@ -306,28 +496,32 @@ pub enum SwapMode {
     ExactIn,
     StrictPartialFill,
     PartialFill,
+    ExactOut,
 }
 
 pub fn handle_swap2(ctx: Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
     let SwapParameters2 {
-        amount_in,
-        minimum_amount_out,
+        amount_0,
+        amount_1,
         swap_mode,
         ..
     } = params;
 
     let swap_mode = SwapMode::try_from(swap_mode).map_err(|_| PoolError::TypeCastFailed)?;
 
-    handle_swap(
-        ctx,
-        SwapParameters {
-            amount_in,
-            minimum_amount_out,
-        },
-        swap_mode,
-    )?;
-
-    Ok(())
+    match swap_mode {
+        SwapMode::ExactOut => {
+            todo!();
+        }
+        _ => handle_swap_exact_in(
+            ctx,
+            SwapExactInParameters {
+                amount_in: amount_0,
+                minimum_amount_out: amount_1,
+            },
+            swap_mode,
+        ),
+    }
 }
 
 pub fn validate_single_swap_instruction<'c, 'info>(

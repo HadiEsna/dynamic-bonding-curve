@@ -170,9 +170,32 @@ pub fn get_next_sqrt_price_from_input(
 
     // round to make sure that we don't pass the target price
     if base_for_quote {
-        get_next_sqrt_price_from_amount_base_rounding_up(sqrt_price, liquidity, amount_in)
+        get_next_sqrt_price_from_amount_base(sqrt_price, liquidity, amount_in, Rounding::Up)
     } else {
-        get_next_sqrt_price_from_amount_quote_rounding_down(sqrt_price, liquidity, amount_in)
+        // Always round down because
+        // 1. In the exact output case, token 1 supply decreases leading to price decrease.
+        // Move price down by rounding down so that exact output of token 0 is met.
+        // 2. In the exact input case, token 1 supply increases leading to price increase.
+        // Do not round down to minimize price impact. We only need to meet input
+        // change and not guarantee exact output for token 0.
+        get_next_sqrt_price_from_amount_quote(sqrt_price, liquidity, amount_in, Rounding::Down)
+    }
+}
+
+pub fn get_next_sqrt_price_from_output(
+    sqrt_price: u128,
+    liquidity: u128,
+    amount_out: u64,
+    base_for_quote: bool,
+) -> Result<u128> {
+    assert!(sqrt_price > 0);
+    assert!(liquidity > 0);
+
+    // round to make sure that we don't pass the target price
+    if base_for_quote {
+        get_next_sqrt_price_from_amount_quote(sqrt_price, liquidity, amount_out, Rounding::Up)
+    } else {
+        get_next_sqrt_price_from_amount_base(sqrt_price, liquidity, amount_out, Rounding::Down)
     }
 }
 
@@ -204,10 +227,11 @@ pub fn get_next_sqrt_price_from_input(
 ///  x = L/√P
 ///  √P' = √P * L / (L + Δx * √P)
 ///
-pub fn get_next_sqrt_price_from_amount_base_rounding_up(
+pub fn get_next_sqrt_price_from_amount_base(
     sqrt_price: u128,
     liquidity: u128,
     amount: u64,
+    rounding: Rounding,
 ) -> Result<u128> {
     if amount == 0 {
         return Ok(sqrt_price);
@@ -217,33 +241,30 @@ pub fn get_next_sqrt_price_from_amount_base_rounding_up(
 
     let product = U256::from(amount).safe_mul(sqrt_price)?;
     let denominator = liquidity.safe_add(U256::from(product))?;
-    let result = mul_div_u256(liquidity, sqrt_price, denominator, Rounding::Up)
+    let result = mul_div_u256(liquidity, sqrt_price, denominator, rounding)
         .ok_or_else(|| PoolError::MathOverflow)?;
     return Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?);
 }
 
 /// Gets the next sqrt price given a delta of token_quote
 ///
-/// Always round down because
-/// 1. In the exact output case, token 1 supply decreases leading to price decrease.
-/// Move price down by rounding down so that exact output of token 0 is met.
-/// 2. In the exact input case, token 1 supply increases leading to price increase.
-/// Do not round down to minimize price impact. We only need to meet input
-/// change and not gurantee exact output for token 0.
-///
-///
 /// # Formula
 ///
 /// * `√P' = √P + Δy / L`
 ///
-pub fn get_next_sqrt_price_from_amount_quote_rounding_down(
+pub fn get_next_sqrt_price_from_amount_quote(
     sqrt_price: u128,
     liquidity: u128,
     amount: u64,
+    rounding: Rounding,
 ) -> Result<u128> {
-    let quotient = U256::from(amount)
+    let (mut quotient, remainder) = U256::from(amount)
         .safe_shl((RESOLUTION * 2) as usize)?
-        .safe_div(U256::from(liquidity))?;
+        .div_rem(U256::from(liquidity));
+
+    if rounding == Rounding::Up && remainder > U256::ZERO {
+        quotient = quotient.safe_add(U256::ONE)?;
+    }
 
     let result = U256::from(sqrt_price).safe_add(quotient)?;
     Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?)
