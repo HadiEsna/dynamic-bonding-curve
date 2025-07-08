@@ -512,9 +512,7 @@ pub fn handle_swap2(ctx: Context<SwapCtx>, params: SwapParameters2) -> Result<()
     let swap_mode = SwapMode::try_from(swap_mode).map_err(|_| PoolError::TypeCastFailed)?;
 
     match swap_mode {
-        SwapMode::ExactOut => {
-            todo!();
-        }
+        SwapMode::ExactOut => handle_swap_exact_out(ctx, amount_0, amount_1),
         _ => handle_swap_exact_in(
             ctx,
             SwapExactInParameters {
