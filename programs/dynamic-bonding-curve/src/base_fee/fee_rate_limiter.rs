@@ -276,7 +276,7 @@ impl BaseFeeHandler for FeeRateLimiter {
     fn validate(&self, collect_fee_mode: u8, activation_type: ActivationType) -> Result<()> {
         let collect_fee_mode = CollectFeeMode::try_from(collect_fee_mode)
             .map_err(|_| PoolError::InvalidCollectFeeMode)?;
-        // can only be apllied in quote token collect fee mode
+        // can only be applied in quote token collect fee mode
         require!(
             collect_fee_mode == CollectFeeMode::QuoteToken,
             PoolError::InvalidFeeRateLimiter

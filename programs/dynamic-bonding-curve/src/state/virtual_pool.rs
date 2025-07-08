@@ -6,6 +6,7 @@ use ruint::aliases::U256;
 use static_assertions::const_assert_eq;
 
 use crate::{
+    base_fee::FeeRateLimiter,
     constants::PARTNER_AND_CREATOR_SURPLUS_SHARE,
     curve::{
         get_delta_amount_base_unsigned, get_delta_amount_base_unsigned_256,
@@ -211,6 +212,7 @@ impl VirtualPool {
         fee_mode: &FeeMode,
         trade_direction: TradeDirection,
         current_point: u64,
+        rate_limiter: Option<&FeeRateLimiter>,
     ) -> Result<SwapResult> {
         let mut actual_protocol_fee = 0;
         let mut actual_trading_fee = 0;
@@ -220,7 +222,7 @@ impl VirtualPool {
             &self.volatility_tracker,
             current_point,
             self.activation_point,
-            0, //TODO: use zero because rate limiter is not applied
+            0, // Rate limiter applied later on quote to base and collect fee quote mode
             trade_direction,
         )?;
 
@@ -259,8 +261,19 @@ impl VirtualPool {
         };
 
         let in_amount = if fee_mode.fees_on_input {
-            let included_fee_in_amount =
-                PoolFeesConfig::get_included_fee_amount(trade_fee_numerator, amount_in)?;
+            let included_fee_in_amount = match rate_limiter {
+                Some(rate_limiter)
+                    if rate_limiter.is_rate_limiter_applied(
+                        current_point,
+                        self.activation_point,
+                        trade_direction,
+                    )? =>
+                {
+                    rate_limiter.get_included_fee_amount(amount_in)?
+                }
+                _ => PoolFeesConfig::get_included_fee_amount(trade_fee_numerator, amount_in)?,
+            };
+
             let FeeOnAmountResult {
                 protocol_fee,
                 trading_fee,
@@ -539,7 +552,6 @@ impl VirtualPool {
                     )?;
                     total_input_amount = total_input_amount.safe_add(input_amount)?;
                     current_sqrt_price = next_sqrt_price;
-                    amount_left = 0;
                     break;
                 } else {
                     let next_sqrt_price = config.curve[i].sqrt_price;

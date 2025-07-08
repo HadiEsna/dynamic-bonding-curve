@@ -319,7 +319,8 @@ pub fn handle_swap_exact_out(
 
     let current_point = get_current_point(config.activation_type)?;
 
-    if let Ok(rate_limiter) = config.pool_fees.base_fee.get_fee_rate_limiter() {
+    let rate_limiter = config.pool_fees.base_fee.get_fee_rate_limiter();
+    if let Ok(rate_limiter) = rate_limiter.as_ref() {
         if rate_limiter.is_rate_limiter_applied(
             current_point,
             pool.activation_point,
@@ -346,6 +347,7 @@ pub fn handle_swap_exact_out(
         fee_mode,
         trade_direction,
         current_point,
+        rate_limiter.ok().as_ref(),
     )?;
 
     let included_fee_in_amount = if fee_mode.fees_on_input {
