@@ -497,7 +497,7 @@ describe("Swap V2", () => {
             amount0: outAmount,
             amount1: U64_MAX, // yolo
             referralTokenAccount: null,
-            swapMode: 3, // exact out
+            swapMode: 2, // exact out
         };
 
         await swap2(context.banksClient, program, swapParams);
