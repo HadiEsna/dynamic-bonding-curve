@@ -251,10 +251,10 @@ impl VirtualPool {
             next_sqrt_price,
         } = match trade_direction {
             TradeDirection::BaseToQuote => {
-                self.get_swap_out_amount_from_base_to_quote(config, included_fee_out_amount)?
+                self.calculate_base_to_quote_from_amount_out(config, included_fee_out_amount)?
             }
             TradeDirection::QuoteToBase => {
-                self.get_swap_out_amount_from_quote_to_base(config, included_fee_out_amount)?
+                self.calculate_quote_to_base_from_amount_out(config, included_fee_out_amount)?
             }
         };
 
@@ -301,7 +301,7 @@ impl VirtualPool {
         })
     }
 
-    pub fn get_swap_out_amount_from_base_to_quote(
+    pub fn calculate_base_to_quote_from_amount_out(
         &self,
         config: &PoolConfig,
         amount_out: u64,
@@ -380,7 +380,7 @@ impl VirtualPool {
         })
     }
 
-    pub fn get_swap_out_amount_from_quote_to_base(
+    pub fn calculate_quote_to_base_from_amount_out(
         &self,
         config: &PoolConfig,
         amount_out: u64,
@@ -495,10 +495,10 @@ impl VirtualPool {
             amount_left,
         } = match trade_direction {
             TradeDirection::BaseToQuote => {
-                self.get_swap_exact_in_amount_from_base_to_quote(config, actual_amount_in)?
+                self.calculate_base_to_quote_from_amount_in(config, actual_amount_in)?
             }
             TradeDirection::QuoteToBase => {
-                self.get_swap_exact_in_amount_from_quote_to_base(config, actual_amount_in)?
+                self.calculate_quote_to_base_from_amount_in(config, actual_amount_in)?
             }
         };
 
@@ -584,10 +584,10 @@ impl VirtualPool {
             amount_left,
         } = match trade_direction {
             TradeDirection::BaseToQuote => {
-                self.get_swap_exact_in_amount_from_base_to_quote(config, actual_amount_in)?
+                self.calculate_base_to_quote_from_amount_in(config, actual_amount_in)?
             }
             TradeDirection::QuoteToBase => {
-                self.get_swap_exact_in_amount_from_quote_to_base(config, actual_amount_in)?
+                self.calculate_quote_to_base_from_amount_in(config, actual_amount_in)?
             }
         };
 
@@ -663,7 +663,7 @@ impl VirtualPool {
         })
     }
 
-    fn get_swap_exact_in_amount_from_base_to_quote(
+    fn calculate_base_to_quote_from_amount_in(
         &self,
         config: &PoolConfig,
         amount_in: u64,
@@ -746,7 +746,7 @@ impl VirtualPool {
         })
     }
 
-    fn get_swap_exact_in_amount_from_quote_to_base(
+    fn calculate_quote_to_base_from_amount_in(
         &self,
         config: &PoolConfig,
         amount_in: u64,
