@@ -182,22 +182,42 @@ impl PoolFeesConfig {
     pub fn get_included_fee_amount(
         trade_fee_numerator: u64,
         excluded_fee_amount: u64,
-    ) -> Result<u64> {
+    ) -> Result<(u64, u64)> {
         let included_fee_amount: u64 = safe_mul_div_cast_u64(
             excluded_fee_amount,
             FEE_DENOMINATOR,
             FEE_DENOMINATOR.safe_sub(trade_fee_numerator)?,
             Rounding::Up,
         )?;
-        // sanity check
-        let (inverse_amount, _trading_fee) =
-            PoolFeesConfig::get_excluded_fee_amount(trade_fee_numerator, included_fee_amount)?;
-        // that should never happen
-        require!(
-            inverse_amount >= excluded_fee_amount,
-            PoolError::UndeterminedError
-        );
-        Ok(included_fee_amount)
+        let fee_amount = included_fee_amount.safe_sub(excluded_fee_amount)?;
+        Ok((included_fee_amount, fee_amount))
+    }
+
+    pub fn split_fees(&self, fee_amount: u64, has_referral: bool) -> Result<(u64, u64, u64)> {
+        let protocol_fee = safe_mul_div_cast_u64(
+            fee_amount,
+            self.protocol_fee_percent.into(),
+            100,
+            Rounding::Down,
+        )?;
+
+        // update trading fee
+        let trading_fee: u64 = fee_amount.safe_sub(protocol_fee)?;
+
+        let referral_fee = if has_referral {
+            safe_mul_div_cast_u64(
+                protocol_fee,
+                self.referral_fee_percent.into(),
+                100,
+                Rounding::Down,
+            )?
+        } else {
+            0
+        };
+
+        let protocol_fee = protocol_fee.safe_sub(referral_fee)?;
+
+        Ok((trading_fee, protocol_fee, referral_fee))
     }
 }
 

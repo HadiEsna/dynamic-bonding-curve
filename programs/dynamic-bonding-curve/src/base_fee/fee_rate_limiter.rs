@@ -172,7 +172,7 @@ impl FeeRateLimiter {
 
             let remaining_amount_fee_numerator = c + i * a_plus_one;
 
-            let included_fee_remaining_amount = PoolFeesConfig::get_included_fee_amount(
+            let (included_fee_remaining_amount, _) = PoolFeesConfig::get_included_fee_amount(
                 remaining_amount_fee_numerator
                     .try_into()
                     .map_err(|_| PoolError::TypeCastFailed)?,
@@ -193,7 +193,7 @@ impl FeeRateLimiter {
             let excluded_fee_remaining_amount =
                 excluded_fee_amount.safe_sub(checked_excluded_fee_amount)?;
             // remaining_amount should take the max fee
-            let included_fee_remaining_amount = PoolFeesConfig::get_included_fee_amount(
+            let (included_fee_remaining_amount, _) = PoolFeesConfig::get_included_fee_amount(
                 MAX_FEE_NUMERATOR,
                 excluded_fee_remaining_amount,
             )?;

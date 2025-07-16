@@ -228,20 +228,16 @@ impl VirtualPool {
                     amount_out,
                     trade_direction,
                 )?;
-            let included_fee_out_amount =
+            let (included_fee_out_amount, fee_amount) =
                 PoolFeesConfig::get_included_fee_amount(trade_fee_numerator, amount_out)?;
-            let FeeOnAmountResult {
-                protocol_fee,
-                trading_fee,
-                referral_fee,
-                ..
-            } = config.pool_fees.get_fee_on_amount(
-                trade_fee_numerator,
-                included_fee_out_amount,
-                fee_mode.has_referral,
-            )?;
-            actual_protocol_fee = protocol_fee;
+
+            // that ensure included_fee_out_amount = amount_out + trading_fee + protocol_fee + referral_fee
+            let (trading_fee, protocol_fee, referral_fee) = config
+                .pool_fees
+                .split_fees(fee_amount, fee_mode.has_referral)?;
+
             actual_trading_fee = trading_fee;
+            actual_protocol_fee = protocol_fee;
             actual_referral_fee = referral_fee;
             included_fee_out_amount
         };
@@ -258,7 +254,7 @@ impl VirtualPool {
             }
         };
 
-        let in_amount = if fee_mode.fees_on_input {
+        let (excluded_fee_input_amount, included_fee_input_amount) = if fee_mode.fees_on_input {
             let trade_fee_numerator = config
                 .pool_fees
                 .get_total_fee_numerator_from_excluded_fee_amount(
@@ -269,41 +265,26 @@ impl VirtualPool {
                     trade_direction,
                 )?;
 
-            let included_fee_in_amount =
+            let (included_fee_in_amount, fee_amount) =
                 PoolFeesConfig::get_included_fee_amount(trade_fee_numerator, amount_in)?;
 
-            let FeeOnAmountResult {
-                protocol_fee,
-                trading_fee,
-                referral_fee,
-                ..
-            } = config.pool_fees.get_fee_on_amount(
-                trade_fee_numerator,
-                included_fee_in_amount,
-                fee_mode.has_referral,
-            )?;
+            // that ensure included_fee_in_amount = excluded_fee_input_amount + trading_fee + protocol_fee + referral_fee
+            let (trading_fee, protocol_fee, referral_fee) = config
+                .pool_fees
+                .split_fees(fee_amount, fee_mode.has_referral)?;
 
-            actual_protocol_fee = protocol_fee;
             actual_trading_fee = trading_fee;
+            actual_protocol_fee = protocol_fee;
             actual_referral_fee = referral_fee;
-            amount_in
+            (amount_in, included_fee_in_amount)
         } else {
-            amount_in
-        };
-
-        let included_fee_input_amount = if fee_mode.fees_on_input {
-            in_amount
-                .safe_add(actual_trading_fee)?
-                .safe_add(actual_protocol_fee)?
-                .safe_add(actual_referral_fee)?
-        } else {
-            in_amount
+            (amount_in, amount_in)
         };
 
         Ok(SwapResult2 {
             amount_left: 0,
             included_fee_input_amount,
-            excluded_fee_input_amount: in_amount,
+            excluded_fee_input_amount,
             output_amount: amount_out,
             next_sqrt_price,
             trading_fee: actual_trading_fee,
@@ -615,22 +596,16 @@ impl VirtualPool {
                         actual_amount_in,
                         trade_direction,
                     )?;
-                let included_fee_input_amount =
+                let (included_fee_input_amount, fee_amount) =
                     PoolFeesConfig::get_included_fee_amount(trade_fee_numerator, actual_amount_in)?;
 
-                let FeeOnAmountResult {
-                    protocol_fee,
-                    trading_fee,
-                    referral_fee,
-                    ..
-                } = config.pool_fees.get_fee_on_amount(
-                    trade_fee_numerator,
-                    included_fee_input_amount,
-                    fee_mode.has_referral,
-                )?;
+                // that ensure included_fee_input_amount = actual_amount_in + trading_fee + protocol_fee + referral_fee
+                let (trading_fee, protocol_fee, referral_fee) = config
+                    .pool_fees
+                    .split_fees(fee_amount, fee_mode.has_referral)?;
 
-                actual_protocol_fee = protocol_fee;
                 actual_trading_fee = trading_fee;
+                actual_protocol_fee = protocol_fee;
                 actual_referral_fee = referral_fee;
 
                 included_fee_input_amount

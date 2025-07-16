@@ -248,7 +248,7 @@ fn assert_rate_limiter_inverse(rate_limiter: &FeeRateLimiter, included_fee_amoun
     let base_fee_numerator = rate_limiter
         .get_fee_numerator_from_excluded_fee_amount(excluded_fee_amount)
         .unwrap();
-    let inverse_amount =
+    let (inverse_amount, _) =
         PoolFeesConfig::get_included_fee_amount(base_fee_numerator, excluded_fee_amount).unwrap();
 
     let excluded_fee_inverse_amount = rate_limiter
