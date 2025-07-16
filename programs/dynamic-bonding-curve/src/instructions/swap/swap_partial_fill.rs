@@ -28,13 +28,15 @@ pub fn process_swap_partial_fill(params: ProcessSwapParams<'_>) -> Result<Proces
         PoolError::ExceededSlippage
     );
 
+    let included_fee_input_amount = swap_result.included_fee_input_amount;
+    let output_amount = swap_result.output_amount;
+
     Ok(ProcessSwapResult {
-        swap_result: swap_result.get_swap_result(),
-        user_pay_input_amount: swap_result.included_fee_input_amount,
+        swap_result,
         // For backward compatibility because we are emitting EvtSwap and EvtSwap2
         swap_in_parameters: SwapParameters {
-            amount_in: swap_result.included_fee_input_amount,
-            minimum_amount_out: swap_result.output_amount,
+            amount_in: included_fee_input_amount,
+            minimum_amount_out: output_amount,
         },
     })
 }

@@ -211,7 +211,7 @@ impl VirtualPool {
         fee_mode: &FeeMode,
         trade_direction: TradeDirection,
         current_point: u64,
-    ) -> Result<SwapResult> {
+    ) -> Result<SwapResult2> {
         let mut actual_protocol_fee = 0;
         let mut actual_trading_fee = 0;
         let mut actual_referral_fee = 0;
@@ -291,8 +291,19 @@ impl VirtualPool {
             amount_in
         };
 
-        Ok(SwapResult {
-            actual_input_amount: in_amount,
+        let included_fee_input_amount = if fee_mode.fees_on_input {
+            in_amount
+                .safe_add(actual_trading_fee)?
+                .safe_add(actual_protocol_fee)?
+                .safe_add(actual_referral_fee)?
+        } else {
+            in_amount
+        };
+
+        Ok(SwapResult2 {
+            amount_left: 0,
+            included_fee_input_amount,
+            excluded_fee_input_amount: in_amount,
             output_amount: amount_out,
             next_sqrt_price,
             trading_fee: actual_trading_fee,
@@ -453,7 +464,7 @@ impl VirtualPool {
         fee_mode: &FeeMode,
         trade_direction: TradeDirection,
         current_point: u64,
-    ) -> Result<SwapResultFromInput> {
+    ) -> Result<SwapResult2> {
         let mut actual_protocol_fee = 0;
         let mut actual_trading_fee = 0;
         let mut actual_referral_fee = 0;
@@ -523,7 +534,7 @@ impl VirtualPool {
             amount
         };
 
-        Ok(SwapResultFromInput {
+        Ok(SwapResult2 {
             amount_left,
             included_fee_input_amount: amount_in,
             excluded_fee_input_amount: actual_amount_in,
@@ -542,7 +553,7 @@ impl VirtualPool {
         fee_mode: &FeeMode,
         trade_direction: TradeDirection,
         current_point: u64,
-    ) -> Result<SwapResultFromInput> {
+    ) -> Result<SwapResult2> {
         let mut actual_protocol_fee = 0;
         let mut actual_trading_fee = 0;
         let mut actual_referral_fee = 0;
@@ -651,7 +662,7 @@ impl VirtualPool {
             amount
         };
 
-        Ok(SwapResultFromInput {
+        Ok(SwapResult2 {
             amount_left,
             included_fee_input_amount,
             excluded_fee_input_amount: actual_amount_in,
@@ -1050,8 +1061,8 @@ impl SwapResult {
     }
 }
 
-#[derive(Debug)]
-pub struct SwapResultFromInput {
+#[derive(Debug, PartialEq, AnchorDeserialize, AnchorSerialize, Copy, Clone)]
+pub struct SwapResult2 {
     pub included_fee_input_amount: u64,
     pub excluded_fee_input_amount: u64,
     pub amount_left: u64,
@@ -1062,7 +1073,7 @@ pub struct SwapResultFromInput {
     pub referral_fee: u64,
 }
 
-impl SwapResultFromInput {
+impl SwapResult2 {
     pub fn get_swap_result(&self) -> SwapResult {
         SwapResult {
             actual_input_amount: self.excluded_fee_input_amount,

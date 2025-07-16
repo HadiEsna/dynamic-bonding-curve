@@ -1,5 +1,3 @@
-use dynamic_bonding_curve::{params::swap::TradeDirection, state::fee::FeeMode};
-
 use crate::{
     quote_exact_in::quote_exact_in, quote_exact_out::quote_exact_out,
     tests::get_fee_in_quote_accounts,
@@ -31,7 +29,7 @@ fn test_quote_exact_out_fee_in_quote_from_base_for_quote() {
         swap_base_for_quote,
         current_timestamp,
         current_slot,
-        exact_out_swap_result.actual_input_amount,
+        exact_out_swap_result.included_fee_input_amount,
         false,
     )
     .unwrap();
@@ -67,22 +65,13 @@ fn test_quote_exact_out_fee_in_quote_from_quote_to_base() {
     .unwrap();
 
     println!("exact_out_swap_result {:?}", exact_out_swap_result);
-
-    let trade_direction = if swap_base_for_quote {
-        TradeDirection::BaseToQuote
-    } else {
-        TradeDirection::QuoteToBase
-    };
-    let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, false).unwrap();
     let exact_in_swap_result = quote_exact_in(
         &pool,
         &config,
         swap_base_for_quote,
         current_timestamp,
         current_slot,
-        exact_out_swap_result
-            .get_included_fee_amount_in(fee_mode.fees_on_input)
-            .unwrap(),
+        exact_out_swap_result.included_fee_input_amount,
         false,
     )
     .unwrap();

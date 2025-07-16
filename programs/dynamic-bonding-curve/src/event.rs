@@ -5,7 +5,7 @@ use crate::{
     params::{
         fee_parameters::PoolFeeParameters, liquidity_distribution::LiquidityDistributionParameters,
     },
-    state::SwapResult,
+    state::{SwapResult, SwapResult2},
     LockedVestingParams, SwapParameters, SwapParameters2,
 };
 
@@ -93,7 +93,7 @@ pub struct EvtSwap2 {
     pub trade_direction: u8,
     pub has_referral: bool,
     pub swap_parameters: SwapParameters2,
-    pub swap_result: SwapResult,
+    pub swap_result: SwapResult2,
     pub quote_reserve_amount: u64,
     pub migration_threshold: u64,
     pub current_timestamp: u64,

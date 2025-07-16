@@ -2,7 +2,7 @@ use anyhow::{ensure, Context, Result};
 use dynamic_bonding_curve::{
     activation_handler::ActivationType,
     params::swap::TradeDirection,
-    state::{fee::FeeMode, PoolConfig, SwapResult, VirtualPool},
+    state::{fee::FeeMode, PoolConfig, SwapResult2, VirtualPool},
 };
 
 pub fn quote_exact_in(
@@ -13,7 +13,7 @@ pub fn quote_exact_in(
     current_slot: u64,
     in_amount: u64,
     has_referral: bool,
-) -> Result<SwapResult> {
+) -> Result<SwapResult2> {
     let mut pool = *pool;
 
     ensure!(
@@ -51,5 +51,5 @@ pub fn quote_exact_in(
         "Amount left is over a threshold"
     );
 
-    Ok(swap_result.get_swap_result())
+    Ok(swap_result)
 }

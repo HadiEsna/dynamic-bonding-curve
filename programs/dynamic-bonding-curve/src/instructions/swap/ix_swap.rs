@@ -200,8 +200,7 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
     };
 
     let ProcessSwapResult {
-        swap_result,
-        user_pay_input_amount,
+        swap_result: swap_result_2,
         swap_in_parameters,
     } = match swap_mode {
         SwapMode::ExactIn => process_swap_exact_in(process_swap_params)?,
@@ -209,6 +208,7 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
         SwapMode::ExactOut => process_swap_exact_out(process_swap_params)?,
     };
 
+    let swap_result = swap_result_2.get_swap_result();
     pool.apply_swap_result(
         &config,
         &swap_result,
@@ -224,7 +224,7 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
         &ctx.accounts.input_token_account,
         input_vault_account,
         input_program,
-        user_pay_input_amount,
+        swap_result_2.included_fee_input_amount,
     )?;
 
     // send to user
@@ -270,7 +270,7 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
         has_referral,
         params: swap_in_parameters,
         swap_result,
-        amount_in: user_pay_input_amount,
+        amount_in: swap_result_2.included_fee_input_amount,
         current_timestamp,
     });
 
@@ -280,7 +280,7 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
         trade_direction: trade_direction.into(),
         has_referral,
         swap_parameters: params,
-        swap_result,
+        swap_result: swap_result_2,
         quote_reserve_amount: pool.quote_reserve,
         migration_threshold: config.migration_quote_threshold,
         current_timestamp,

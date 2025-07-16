@@ -35,8 +35,7 @@ pub fn process_swap_exact_in(params: ProcessSwapParams<'_>) -> Result<ProcessSwa
     );
 
     Ok(ProcessSwapResult {
-        swap_result: swap_result.get_swap_result(),
-        user_pay_input_amount: amount_in,
+        swap_result,
         swap_in_parameters: SwapParameters {
             amount_in,
             minimum_amount_out,

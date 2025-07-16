@@ -2,7 +2,7 @@ use anyhow::{ensure, Context, Result};
 use dynamic_bonding_curve::{
     activation_handler::ActivationType,
     params::swap::TradeDirection,
-    state::{fee::FeeMode, PoolConfig, SwapResult, VirtualPool},
+    state::{fee::FeeMode, PoolConfig, SwapResult2, VirtualPool},
 };
 
 pub fn quote_exact_out(
@@ -12,7 +12,7 @@ pub fn quote_exact_out(
     current_timestamp: u64,
     current_slot: u64,
     out_amount: u64,
-) -> Result<SwapResult> {
+) -> Result<SwapResult2> {
     let mut pool = *pool;
 
     ensure!(

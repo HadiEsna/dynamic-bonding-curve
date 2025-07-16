@@ -6,12 +6,11 @@ mod swap_partial_fill;
 
 use crate::{
     params::swap::TradeDirection,
-    state::{fee::FeeMode, PoolConfig, SwapResult, VirtualPool},
+    state::{fee::FeeMode, PoolConfig, SwapResult2, VirtualPool},
 };
 
 struct ProcessSwapResult {
-    swap_result: SwapResult,
-    user_pay_input_amount: u64,
+    swap_result: SwapResult2,
     swap_in_parameters: SwapParameters,
 }
 
