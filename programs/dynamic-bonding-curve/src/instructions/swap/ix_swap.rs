@@ -1,6 +1,5 @@
 use std::u64;
 
-use crate::base_fee::FeeRateLimiter;
 use crate::instruction::Swap as SwapInstruction;
 use crate::math::safe_math::SafeMath;
 use crate::state::{MigrationProgress, SwapResult};
@@ -13,7 +12,10 @@ use crate::{
     token::{transfer_from_pool, transfer_from_user},
     EvtSwap, PoolError,
 };
-use crate::{EvtCurveComplete, EvtSwap2};
+use crate::{
+    process_swap_exact_in, process_swap_exact_out, process_swap_partial_fill, EvtCurveComplete,
+    EvtSwap2,
+};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::{
     get_processed_sibling_instruction, get_stack_height,
@@ -22,10 +24,35 @@ use anchor_lang::solana_program::sysvar;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use num_enum::{FromPrimitive, IntoPrimitive};
 
+// only be use for swap exact in
 #[derive(AnchorSerialize, AnchorDeserialize)]
-pub struct SwapExactInParameters {
+pub struct SwapParameters {
     pub amount_in: u64,
     pub minimum_amount_out: u64,
+}
+
+// can be used for different swap_mode
+#[derive(AnchorSerialize, AnchorDeserialize, Default)]
+pub struct SwapParameters2 {
+    /// When it's exact in, partial fill, this will be amount_in. When it's exact out, this will be amount_out
+    pub amount_0: u64,
+    /// When it's exact in, partial fill, this will be minimum_amount_out. When it's exact out, this will be maximum_amount_in
+    pub amount_1: u64,
+    /// Swap mode, refer [SwapMode]
+    pub swap_mode: u8,
+    // Padding for future use
+    pub padding: [u8; 32],
+}
+
+#[repr(u8)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, IntoPrimitive, FromPrimitive, AnchorDeserialize, AnchorSerialize,
+)]
+pub enum SwapMode {
+    #[num_enum(default)]
+    ExactIn,
+    PartialFill,
+    ExactOut,
 }
 
 #[event_cpi]
@@ -161,7 +188,6 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
 
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
 
-    let rate_limiter = rate_limiter.ok();
     let process_swap_params = ProcessSwapParams {
         pool: &mut pool,
         config: &config,
@@ -170,7 +196,6 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
         current_point,
         amount_0,
         amount_1,
-        rate_limiter: rate_limiter.as_ref(),
     };
 
     let ProcessSwapResult {
@@ -301,29 +326,6 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
     Ok(())
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Default)]
-pub struct SwapParameters2 {
-    /// When it's exact in, partial fill, this will be amount_in. When it's exact out, this will be amount_out
-    pub amount_0: u64,
-    /// When it's exact in, partial fill, this will be minimum_amount_out. When it's exact out, this will be maximum_amount_in
-    pub amount_1: u64,
-    /// Swap mode, refer [SwapMode]
-    pub swap_mode: u8,
-    // Padding for future use
-    pub padding: [u8; 32],
-}
-
-#[repr(u8)]
-#[derive(
-    Clone, Copy, Debug, PartialEq, IntoPrimitive, FromPrimitive, AnchorDeserialize, AnchorSerialize,
-)]
-pub enum SwapMode {
-    #[num_enum(default)]
-    ExactIn,
-    PartialFill,
-    ExactOut,
-}
-
 pub fn validate_single_swap_instruction<'c, 'info>(
     pool: &Pubkey,
     remaining_accounts: &'c [AccountInfo<'info>],
@@ -389,158 +391,18 @@ pub fn validate_single_swap_instruction<'c, 'info>(
     Ok(())
 }
 
-struct ProcessSwapResult {
-    swap_result: SwapResult,
-    user_pay_input_amount: u64,
-    swap_in_parameters: SwapExactInParameters,
+pub struct ProcessSwapResult {
+    pub swap_result: SwapResult,
+    pub user_pay_input_amount: u64,
+    pub swap_in_parameters: SwapParameters,
 }
 
-struct ProcessSwapParams<'a> {
-    pool: &'a mut VirtualPool,
-    config: &'a PoolConfig,
-    fee_mode: &'a FeeMode,
-    trade_direction: TradeDirection,
-    current_point: u64,
-    amount_0: u64,
-    amount_1: u64,
-    rate_limiter: Option<&'a FeeRateLimiter>,
-}
-
-fn process_swap_exact_in(params: ProcessSwapParams<'_>) -> Result<ProcessSwapResult> {
-    let ProcessSwapParams {
-        amount_0: amount_in,
-        amount_1: minimum_amount_out,
-        pool,
-        config,
-        fee_mode,
-        trade_direction,
-        current_point,
-        ..
-    } = params;
-
-    let swap_result = pool
-        .get_swap_exact_in_result(
-            config,
-            amount_in,
-            fee_mode,
-            trade_direction,
-            current_point,
-            config.get_max_swallow_quote_amount()?,
-        )?
-        .0;
-
-    require!(
-        swap_result.output_amount >= minimum_amount_out,
-        PoolError::ExceededSlippage
-    );
-
-    Ok(ProcessSwapResult {
-        swap_result,
-        user_pay_input_amount: amount_in,
-        swap_in_parameters: SwapExactInParameters {
-            amount_in,
-            minimum_amount_out,
-        },
-    })
-}
-
-fn process_swap_partial_fill(params: ProcessSwapParams<'_>) -> Result<ProcessSwapResult> {
-    let ProcessSwapParams {
-        amount_0: amount_in,
-        amount_1: minimum_amount_out,
-        pool,
-        config,
-        fee_mode,
-        trade_direction,
-        current_point,
-        rate_limiter,
-    } = params;
-
-    let (swap_result, trigger_migration_swap) = pool.get_swap_exact_in_result(
-        config,
-        amount_in,
-        fee_mode,
-        trade_direction,
-        current_point,
-        // Silent swallow threshold error
-        u64::MAX,
-    )?;
-
-    if !trigger_migration_swap {
-        require!(
-            swap_result.output_amount >= minimum_amount_out,
-            PoolError::ExceededSlippage
-        );
-
-        return Ok(ProcessSwapResult {
-            swap_result,
-            user_pay_input_amount: amount_in,
-            swap_in_parameters: SwapExactInParameters {
-                amount_in,
-                minimum_amount_out: swap_result.output_amount, // This is the output amount after partial fill,
-            },
-        });
-    }
-
-    // It's migration swap we swap full curve using exact out
-    let swap_result = pool.get_swap_exact_out_result(
-        config,
-        swap_result.output_amount, // inverse
-        fee_mode,
-        trade_direction,
-        current_point,
-        rate_limiter,
-    )?;
-
-    let included_fee_in_amount = swap_result.get_included_fee_amount_in(fee_mode.fees_on_input)?;
-
-    Ok(ProcessSwapResult {
-        swap_result,
-        user_pay_input_amount: included_fee_in_amount,
-        // For backward compatibility because we are emitting EvtSwap and EvtSwap2
-        swap_in_parameters: SwapExactInParameters {
-            amount_in: included_fee_in_amount,
-            minimum_amount_out: swap_result.output_amount,
-        },
-    })
-}
-
-fn process_swap_exact_out(params: ProcessSwapParams<'_>) -> Result<ProcessSwapResult> {
-    let ProcessSwapParams {
-        pool,
-        config,
-        fee_mode,
-        trade_direction,
-        current_point,
-        amount_0: amount_out,
-        amount_1: maximum_amount_in,
-        rate_limiter,
-        ..
-    } = params;
-
-    let swap_result = pool.get_swap_exact_out_result(
-        config,
-        amount_out,
-        fee_mode,
-        trade_direction,
-        current_point,
-        rate_limiter,
-    )?;
-
-    let included_fee_in_amount = swap_result.get_included_fee_amount_in(fee_mode.fees_on_input)?;
-
-    require!(
-        included_fee_in_amount <= maximum_amount_in,
-        PoolError::ExceededSlippage
-    );
-
-    Ok(ProcessSwapResult {
-        swap_result,
-        user_pay_input_amount: included_fee_in_amount,
-        // For backward compatibility because we are emitting EvtSwap and EvtSwap2
-        swap_in_parameters: SwapExactInParameters {
-            amount_in: included_fee_in_amount,
-            minimum_amount_out: swap_result.output_amount,
-        },
-    })
+pub struct ProcessSwapParams<'a> {
+    pub pool: &'a mut VirtualPool,
+    pub config: &'a PoolConfig,
+    pub fee_mode: &'a FeeMode,
+    pub trade_direction: TradeDirection,
+    pub current_point: u64,
+    pub amount_0: u64,
+    pub amount_1: u64,
 }

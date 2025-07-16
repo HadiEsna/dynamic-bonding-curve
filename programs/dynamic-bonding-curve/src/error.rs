@@ -142,4 +142,7 @@ pub enum PoolError {
 
     #[msg("Rate limiter not supported")]
     RateLimiterNotSupported,
+
+    #[msg("Invalid trade direction")]
+    InvalidTradeDirection,
 }

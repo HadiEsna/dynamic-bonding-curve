@@ -13,7 +13,6 @@ pub fn quote_exact_in(
     current_slot: u64,
     transfer_fee_excluded_amount_in: u64, // must be calculated from outside
     has_referral: bool,
-    swap_mode: u8,
 ) -> Result<SwapResult> {
     let mut virtual_pool = *virtual_pool;
 
@@ -39,14 +38,18 @@ pub fn quote_exact_in(
     };
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
 
-    let (swap_result, _user_pay_input_amount) = virtual_pool.get_swap_exact_in_result(
+    let swap_result = virtual_pool.get_swap_result_from_exact_input(
         config,
         transfer_fee_excluded_amount_in,
         fee_mode,
         trade_direction,
         current_point,
-        config.get_max_swallow_quote_amount()?,
     )?;
 
-    Ok(swap_result)
+    ensure!(
+        swap_result.amount_left <= config.get_max_swallow_quote_amount()?,
+        "Amount left is over a threshold"
+    );
+
+    Ok(swap_result.get_swap_result())
 }
