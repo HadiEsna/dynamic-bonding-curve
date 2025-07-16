@@ -1,12 +1,13 @@
 use dynamic_bonding_curve::{params::swap::TradeDirection, state::fee::FeeMode};
 
 use crate::{
-    quote_exact_in::quote_exact_in, quote_exact_out::quote_exact_out, tests::get_accounts,
+    quote_exact_in::quote_exact_in, quote_exact_out::quote_exact_out,
+    tests::get_fee_in_quote_accounts,
 };
 
 #[test]
 fn test_quote_exact_out_fee_in_quote_from_base_for_quote() {
-    let (config, pool) = get_accounts();
+    let (config, pool) = get_fee_in_quote_accounts();
 
     let swap_base_for_quote = true;
     let current_timestamp = 1_750_997_303;
@@ -49,7 +50,7 @@ fn test_quote_exact_out_fee_in_quote_from_base_for_quote() {
 
 #[test]
 fn test_quote_exact_out_fee_in_quote_from_quote_to_base() {
-    let (config, pool) = get_accounts();
+    let (config, pool) = get_fee_in_quote_accounts();
 
     let swap_base_for_quote = false;
     let current_timestamp = 1_750_997_303;

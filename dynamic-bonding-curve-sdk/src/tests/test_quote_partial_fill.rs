@@ -1,10 +1,11 @@
 use crate::{
-    quote_exact_in::quote_exact_in, quote_partial_fill::quote_partial_fill, tests::get_accounts,
+    quote_exact_in::quote_exact_in, quote_partial_fill::quote_partial_fill,
+    tests::get_fee_in_quote_accounts,
 };
 
 #[test]
 fn test_quote_partial_fill_fee_in_quote_from_base_for_quote() {
-    let (config, pool) = get_accounts();
+    let (config, pool) = get_fee_in_quote_accounts();
 
     let swap_base_for_quote = true;
     let current_timestamp = 1_750_997_303;
@@ -37,7 +38,7 @@ fn test_quote_partial_fill_fee_in_quote_from_base_for_quote() {
 
 #[test]
 fn test_quote_partial_fill_fee_in_quote_from_quote_to_base() {
-    let (config, pool) = get_accounts();
+    let (config, pool) = get_fee_in_quote_accounts();
 
     let swap_base_for_quote = false;
     let current_timestamp = 1_750_997_303;
