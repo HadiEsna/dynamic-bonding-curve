@@ -1,22 +1,8 @@
-use std::fs;
+use dynamic_bonding_curve::{params::swap::TradeDirection, state::fee::FeeMode};
 
-use dynamic_bonding_curve::state::{PoolConfig, VirtualPool};
-
-use crate::{quote_exact_in::quote_exact_in, quote_exact_out::quote_exact_out};
-
-fn get_accounts() -> (PoolConfig, VirtualPool) {
-    let account_data = fs::read(&"./fixtures/config.bin").expect("Failed to read account data");
-
-    let mut data_without_discriminator = account_data[8..].to_vec();
-    let config_state: &PoolConfig = bytemuck::from_bytes(&mut data_without_discriminator);
-
-    let account_data = fs::read(&"./fixtures/pool.bin").expect("Failed to read account data");
-
-    let mut data_without_discriminator = account_data[8..].to_vec();
-    let pool_state: &VirtualPool = bytemuck::from_bytes_mut(&mut data_without_discriminator);
-
-    (*config_state, *pool_state)
-}
+use crate::{
+    quote_exact_in::quote_exact_in, quote_exact_out::quote_exact_out, tests::get_accounts,
+};
 
 #[test]
 fn test_quote_exact_out_fee_in_quote_from_base_for_quote() {
@@ -51,6 +37,14 @@ fn test_quote_exact_out_fee_in_quote_from_base_for_quote() {
     println!("exact_in_swap_result {:?}", exact_in_swap_result);
 
     assert_eq!(exact_in_swap_result.output_amount, output_amount);
+    assert_eq!(
+        exact_in_swap_result.trading_fee,
+        exact_out_swap_result.trading_fee
+    );
+    assert_eq!(
+        exact_in_swap_result.protocol_fee,
+        exact_out_swap_result.protocol_fee
+    );
 }
 
 #[test]
@@ -73,17 +67,28 @@ fn test_quote_exact_out_fee_in_quote_from_quote_to_base() {
 
     println!("exact_out_swap_result {:?}", exact_out_swap_result);
 
+    let trade_direction = if swap_base_for_quote {
+        TradeDirection::BaseToQuote
+    } else {
+        TradeDirection::QuoteToBase
+    };
+    let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, false).unwrap();
     let exact_in_swap_result = quote_exact_in(
         &pool,
         &config,
         swap_base_for_quote,
         current_timestamp,
         current_slot,
-        exact_out_swap_result.actual_input_amount,
+        exact_out_swap_result
+            .get_included_fee_amount_in(fee_mode.fees_on_input)
+            .unwrap(),
         false,
     )
     .unwrap();
     println!("exact_in_swap_result {:?}", exact_in_swap_result);
 
     assert!(exact_in_swap_result.output_amount >= output_amount);
+
+    assert!(exact_in_swap_result.trading_fee == exact_out_swap_result.trading_fee);
+    assert!(exact_in_swap_result.protocol_fee == exact_out_swap_result.protocol_fee);
 }

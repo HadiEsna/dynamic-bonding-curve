@@ -295,8 +295,8 @@ impl VirtualPool {
             actual_input_amount: in_amount,
             output_amount: amount_out,
             next_sqrt_price,
-            trading_fee: actual_protocol_fee,
-            protocol_fee: actual_trading_fee,
+            trading_fee: actual_trading_fee,
+            protocol_fee: actual_protocol_fee,
             referral_fee: actual_referral_fee,
         })
     }
@@ -516,8 +516,8 @@ impl VirtualPool {
                 fee_mode.has_referral,
             )?;
 
-            actual_protocol_fee = protocol_fee;
             actual_trading_fee = trading_fee;
+            actual_protocol_fee = protocol_fee;
             actual_referral_fee = referral_fee;
 
             amount
