@@ -1,4 +1,7 @@
-use crate::{PoolError, ProcessSwapParams, ProcessSwapResult, SwapParameters};
+use crate::{
+    swap::{ProcessSwapParams, ProcessSwapResult},
+    PoolError, SwapParameters,
+};
 use anchor_lang::prelude::*;
 
 pub fn process_swap_exact_in(params: ProcessSwapParams<'_>) -> Result<ProcessSwapResult> {

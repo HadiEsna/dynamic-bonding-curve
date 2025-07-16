@@ -1,8 +1,26 @@
 pub mod ix_swap;
 pub use ix_swap::*;
-pub mod swap_exact_in;
-pub use swap_exact_in::*;
-pub mod swap_partial_fill;
-pub use swap_partial_fill::*;
-pub mod swap_exact_out;
-pub use swap_exact_out::*;
+mod swap_exact_in;
+mod swap_exact_out;
+mod swap_partial_fill;
+
+use crate::{
+    params::swap::TradeDirection,
+    state::{fee::FeeMode, PoolConfig, SwapResult, VirtualPool},
+};
+
+struct ProcessSwapResult {
+    swap_result: SwapResult,
+    user_pay_input_amount: u64,
+    swap_in_parameters: SwapParameters,
+}
+
+struct ProcessSwapParams<'a> {
+    pool: &'a mut VirtualPool,
+    config: &'a PoolConfig,
+    fee_mode: &'a FeeMode,
+    trade_direction: TradeDirection,
+    current_point: u64,
+    amount_0: u64,
+    amount_1: u64,
+}

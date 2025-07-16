@@ -2,7 +2,11 @@ use std::u64;
 
 use crate::instruction::Swap as SwapInstruction;
 use crate::math::safe_math::SafeMath;
-use crate::state::{MigrationProgress, SwapResult};
+use crate::state::MigrationProgress;
+use crate::swap::swap_exact_in::process_swap_exact_in;
+use crate::swap::swap_exact_out::process_swap_exact_out;
+use crate::swap::swap_partial_fill::process_swap_partial_fill;
+use crate::swap::{ProcessSwapParams, ProcessSwapResult};
 use crate::{
     activation_handler::get_current_point,
     const_pda,
@@ -12,10 +16,7 @@ use crate::{
     token::{transfer_from_pool, transfer_from_user},
     EvtSwap, PoolError,
 };
-use crate::{
-    process_swap_exact_in, process_swap_exact_out, process_swap_partial_fill, EvtCurveComplete,
-    EvtSwap2,
-};
+use crate::{EvtCurveComplete, EvtSwap2};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::{
     get_processed_sibling_instruction, get_stack_height,
@@ -389,20 +390,4 @@ pub fn validate_single_swap_instruction<'c, 'info>(
         }
     }
     Ok(())
-}
-
-pub struct ProcessSwapResult {
-    pub swap_result: SwapResult,
-    pub user_pay_input_amount: u64,
-    pub swap_in_parameters: SwapParameters,
-}
-
-pub struct ProcessSwapParams<'a> {
-    pub pool: &'a mut VirtualPool,
-    pub config: &'a PoolConfig,
-    pub fee_mode: &'a FeeMode,
-    pub trade_direction: TradeDirection,
-    pub current_point: u64,
-    pub amount_0: u64,
-    pub amount_1: u64,
 }
