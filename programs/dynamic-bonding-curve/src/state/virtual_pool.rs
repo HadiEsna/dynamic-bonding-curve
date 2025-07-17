@@ -308,8 +308,8 @@ impl VirtualPool {
             }
             if config.curve[i].sqrt_price < current_sqrt_price {
                 let max_amount_out = get_delta_amount_quote_unsigned_256(
-                    current_sqrt_price,
                     config.curve[i].sqrt_price,
+                    current_sqrt_price,
                     config.curve[i + 1].liquidity,
                     Rounding::Down,
                 )?;
