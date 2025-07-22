@@ -22,7 +22,7 @@ use crate::{
 
 use super::fee::{FeeOnAmountResult, VolatilityTracker};
 
-/// collect fee mode
+/// base fee mode
 #[repr(u8)]
 #[derive(
     Clone,
@@ -236,7 +236,7 @@ impl DynamicFeeConfig {
             .volatility_accumulator
             .safe_mul(self.bin_step.into())?
             .checked_pow(2)
-            .ok_or(PoolError::MathOverflow)?;
+            .ok_or_else(|| PoolError::MathOverflow)?;
 
         // 2. Multiplying by the fee control factor
         let v_fee = square_vfa_bin.safe_mul(self.variable_fee_control.into())?;
@@ -364,12 +364,13 @@ pub enum TokenType {
     AnchorSerialize,
 )]
 pub enum MigrationFeeOption {
-    FixedBps25,  // 0.25%
-    FixedBps30,  // 0.3%
-    FixedBps100, // 1%
-    FixedBps200, // 2%
-    FixedBps400, // 4%
-    FixedBps600, // 6%
+    FixedBps25,   // 0.25% (0)
+    FixedBps30,   // 0.3%  (1)
+    FixedBps100,  // 1%    (2)
+    FixedBps200,  // 2%    (3)
+    FixedBps400,  // 4%    (4)
+    FixedBps600,  // 6%    (5)
+    Customizable, // Migration with customizable pool (6)
 }
 
 impl MigrationFeeOption {
@@ -392,6 +393,9 @@ impl MigrationFeeOption {
             }
             MigrationFeeOption::FixedBps600 => {
                 require!(base_fee_bps == 600, PoolError::InvalidMigrationFeeOption);
+            }
+            MigrationFeeOption::Customizable => {
+                // nothing to check
             }
         }
         Ok(())
@@ -443,8 +447,8 @@ pub struct PoolConfig {
     pub migration_fee_percentage: u8,
     /// creator migration fee percentage
     pub creator_migration_fee_percentage: u8,
-    /// padding 1
-    pub _padding_1: [u8; 7],
+    /// padding 0
+    pub _padding_0: [u8; 7],
     /// swap base amount
     pub swap_base_amount: u64,
     /// migration quote threshold (in quote token)
@@ -459,8 +463,16 @@ pub struct PoolConfig {
     pub pre_migration_token_supply: u64,
     /// post migration token supply
     pub post_migration_token_supply: u64,
+    /// migrated pool collect fee mode
+    pub migrated_collect_fee_mode: u8,
+    /// migrated dynamic fee option.
+    pub migrated_dynamic_fee: u8,
+    /// migrated pool fee in bps
+    pub migrated_pool_fee_bps: u16,
+    /// padding 1
+    pub _padding_1: [u8; 12],
     /// padding 2
-    pub _padding_2: [u128; 2],
+    pub _padding_2: u128,
     /// minimum price
     pub sqrt_start_price: u128,
     /// curve, only use 20 point firstly, we can extend that latter
@@ -517,6 +529,9 @@ impl PoolConfig {
         fixed_token_supply_flag: u8,
         pre_migration_token_supply: u64,
         post_migration_token_supply: u64,
+        migrated_pool_fee_bps: u16,
+        migrated_collect_fee_mode: u8,
+        migrated_dynamic_fee: u8,
         curve: &Vec<LiquidityDistributionParameters>,
     ) {
         self.version = 0;
@@ -551,6 +566,9 @@ impl PoolConfig {
         self.fixed_token_supply_flag = fixed_token_supply_flag;
         self.pre_migration_token_supply = pre_migration_token_supply;
         self.post_migration_token_supply = post_migration_token_supply;
+        self.migrated_pool_fee_bps = migrated_pool_fee_bps;
+        self.migrated_collect_fee_mode = migrated_collect_fee_mode;
+        self.migrated_dynamic_fee = migrated_dynamic_fee;
 
         for i in 0..curve.len() {
             self.curve[i] = curve[i].to_liquidity_distribution_config();
