@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+## dynamic_bonding_curve [0.1.5] [PR #113](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/113)
+### Added
+- Allow more option for migration fee on Damm V2, and partner can config a customizable fee when token is migrated.
+- Migrator needs to check the new value for `migration_fee_option`, if the value is 6 (Customizable), then need to use the new config key for DammV2 migration (A8gMrEPJkacWkcb3DGwtJwTe16HktSEfvwtuDh2MCtck)
+- Emit new event when partner create a new config key, that includes more information: `EvtCreateConfigV2`
+
 ## dynamic_bonding_curve [0.1.4] [PR #100](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/100)
 ### Added
 - Allow more options for token authority configuration: `PartnerUpdateAuthority`, `CreatorUpdateAndMintAuthority` and `PartnerUpdateAndMintAuthority`
