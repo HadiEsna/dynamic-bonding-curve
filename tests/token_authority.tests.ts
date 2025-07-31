@@ -89,16 +89,16 @@ describe("Token authority with token2022", () => {
       poolCreator.publicKey.toString()
     );
     // validate token metadata update authority
-    const tokenMetadata =unpack(
+    const tokenMetadata = unpack(
       getExtensionData(ExtensionType.TokenMetadata, Buffer.from(tlvData))
     );
     expect(tokenMetadata.updateAuthority.toString()).eq(poolCreator.publicKey.toString())
-    
-   // validate mint authority
+
+    // validate mint authority
     const baseMintData = await getMint(
-         context.banksClient,
-         virtualPoolState.baseMint
-       );
+      context.banksClient,
+      virtualPoolState.baseMint
+    );
     expect(baseMintData.mintAuthorityOption).eq(0);
   });
 
@@ -131,11 +131,11 @@ describe("Token authority with token2022", () => {
       PublicKey.default.toString()
     );
     // validate token metadata update authority
-    const tokenMetadata =unpack(
+    const tokenMetadata = unpack(
       getExtensionData(ExtensionType.TokenMetadata, Buffer.from(tlvData))
     );
     expect(tokenMetadata.updateAuthority).to.be.undefined
-    
+
     // validate mint authority
     const baseMintData = await getMint(
       context.banksClient,
@@ -172,7 +172,7 @@ describe("Token authority with token2022", () => {
       partner.publicKey.toString()
     );
     // validate token metadata update authority
-    const tokenMetadata =unpack(
+    const tokenMetadata = unpack(
       getExtensionData(ExtensionType.TokenMetadata, Buffer.from(tlvData))
     );
     expect(tokenMetadata.updateAuthority.toString()).eq(partner.publicKey.toString())
@@ -219,7 +219,7 @@ describe("Token authority with token2022", () => {
       poolCreator.publicKey.toString()
     );
     // validate token metadata update authority
-    const tokenMetadata =unpack(
+    const tokenMetadata = unpack(
       getExtensionData(ExtensionType.TokenMetadata, Buffer.from(tlvData))
     );
     expect(tokenMetadata.updateAuthority.toString()).eq(poolCreator.publicKey.toString())
@@ -259,7 +259,7 @@ describe("Token authority with token2022", () => {
       partner.publicKey.toString()
     );
     // validate token metadata update authority
-    const tokenMetadata =unpack(
+    const tokenMetadata = unpack(
       getExtensionData(ExtensionType.TokenMetadata, Buffer.from(tlvData))
     );
     expect(tokenMetadata.updateAuthority.toString()).eq(partner.publicKey.toString())
@@ -517,10 +517,10 @@ async function createPool(
 ): Promise<PublicKey> {
   const baseFee: BaseFee = {
     cliffFeeNumerator: new BN(2_500_000),
-    numberOfPeriod: 0,
-    reductionFactor: new BN(0),
-    periodFrequency: new BN(0),
-    feeSchedulerMode: 0,
+    firstFactor: 0,
+    secondFactor: new BN(0),
+    thirdFactor: new BN(0),
+    baseFeeMode: 0,
   };
 
   const curves = [];
@@ -570,8 +570,12 @@ async function createPool(
     },
     creatorTradingFeePercentage: 0,
     tokenUpdateAuthority: tokenUpdateAuthority,
-    padding0: [],
-    padding1: [],
+    migratedPoolFee: {
+      collectFeeMode: 0,
+      dynamicFee: 0,
+      poolFeeBps: 0,
+    },
+    padding: [],
     curve: curves,
   };
   const params: CreateConfigParams = {
