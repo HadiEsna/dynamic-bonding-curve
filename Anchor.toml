@@ -3,14 +3,17 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-dynamic_bonding_curve = "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN"
+dynamic_bonding_curve = "4p6rpELnszFn51S5C9s5KfT8Pf1zDeyLWSp3Bs56fE9B"
+
+[programs.devnet]
+dynamic_bonding_curve = "4p6rpELnszFn51S5C9s5KfT8Pf1zDeyLWSp3Bs56fE9B"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "Localnet"
-wallet = "keys/local/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json"
+cluster = "Devnet"
+wallet = "keys/devnet/deployer.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

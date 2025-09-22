@@ -26,7 +26,7 @@ pub mod params;
 // Bring in AuthorizationPayload type used in several instruction handlers
 use crate::params::authorization::AuthorizationPayload;
 
-declare_id!("dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN");
+declare_id!("4p6rpELnszFn51S5C9s5KfT8Pf1zDeyLWSp3Bs56fE9B");
 
 #[program]
 pub mod dynamic_bonding_curve {
