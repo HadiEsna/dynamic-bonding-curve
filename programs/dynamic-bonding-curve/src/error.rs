@@ -151,4 +151,19 @@ pub enum PoolError {
 
     #[msg("Next sqrt price is smaller than start sqrt price")]
     NextSqrtPriceIsSmallerThanStartSqrtPrice,
+
+    #[msg("Missing admin authorization signature")]
+    MissingAdminAuthorization,
+
+    #[msg("Admin authorization expired")]
+    AuthorizationExpired,
+
+    #[msg("Invalid admin signature")]
+    InvalidAdminSignature,
+
+    #[msg("Authorization nonce must increase")]
+    AuthorizationNonceNotIncreasing,
+
+    #[msg("Authorization authority mismatch")]
+    UnauthorizedAuthorityForSignature,
 }

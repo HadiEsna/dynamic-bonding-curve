@@ -10,10 +10,14 @@ use crate::swap::{ProcessSwapParams, ProcessSwapResult};
 use crate::{
     activation_handler::get_current_point,
     const_pda,
-    params::swap::TradeDirection,
-    state::fee::FeeMode,
-    state::{PoolConfig, VirtualPool},
+    constants::seeds::AUTHORIZATION_PREFIX,
+    params::{
+        authorization::{AuthorizationAction, AuthorizationPayload},
+        swap::TradeDirection,
+    },
+    state::{fee::FeeMode, AuthorizationNonce, PoolConfig, VirtualPool},
     token::{transfer_from_pool, transfer_from_user},
+    utils::authorization::verify_admin_authorization,
     EvtSwap, PoolError,
 };
 use crate::{EvtCurveComplete, EvtSwap2};
@@ -95,6 +99,16 @@ pub struct SwapCtx<'info> {
     /// The user performing the swap
     pub payer: Signer<'info>,
 
+    #[account(
+        mut,
+        init_if_needed,
+        seeds = [AUTHORIZATION_PREFIX, payer.key().as_ref()],
+        bump,
+        payer = payer,
+        space = 8 + AuthorizationNonce::INIT_SPACE,
+    )]
+    pub authorization_nonce: Account<'info, AuthorizationNonce>,
+
     /// Token base program
     pub token_base_program: Interface<'info, TokenInterface>,
 
@@ -116,7 +130,11 @@ impl<'info> SwapCtx<'info> {
     }
 }
 
-pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
+pub fn handle_swap_wrapper(
+    ctx: Context<SwapCtx>,
+    params: SwapParameters2,
+    auth: AuthorizationPayload,
+) -> Result<()> {
     let SwapParameters2 {
         amount_0,
         amount_1,
@@ -160,6 +178,16 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
     let config = ctx.accounts.config.load()?;
     let mut pool = ctx.accounts.pool.load_mut()?;
 
+    let clock = Clock::get()?;
+    verify_admin_authorization(
+        &auth,
+        AuthorizationAction::Swap,
+        &ctx.accounts.payer.key(),
+        &ctx.accounts.pool.key(),
+        clock.slot,
+        &mut ctx.accounts.authorization_nonce,
+    )?;
+
     let current_point = get_current_point(config.activation_type)?;
 
     // another validation to prevent snipers to craft multiple swap instructions in 1 tx
@@ -182,7 +210,7 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
     );
 
     // update for dynamic fee reference
-    let current_timestamp = Clock::get()?.unix_timestamp as u64;
+    let current_timestamp = clock.unix_timestamp as u64;
     pool.update_pre_swap(&config, current_timestamp)?;
 
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;

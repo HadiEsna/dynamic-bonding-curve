@@ -32,6 +32,7 @@ spl-token-metadata-interface = "0.6"
 dynamic-amm = { path = "../../libs/dynamic-amm" }
 damm-v2 = { path = "../../libs/damm-v2" }
 locker = { path = "../../libs/locker" }
+ed25519-dalek = { version = "1", default-features = false, features = ["u64_backend"] }
 
 [dev-dependencies]
 proptest = "1.2.0"
