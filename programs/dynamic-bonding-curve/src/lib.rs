@@ -77,15 +77,17 @@ pub mod dynamic_bonding_curve {
     pub fn initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
         ctx: Context<'_, '_, 'c, 'info, InitializeVirtualPoolWithSplTokenCtx<'info>>,
         params: InitializePoolParameters,
+        auth: AuthorizationPayload,
     ) -> Result<()> {
-        instructions::handle_initialize_virtual_pool_with_spl_token(ctx, params)
+        instructions::handle_initialize_virtual_pool_with_spl_token(ctx, params, auth)
     }
 
     pub fn initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
         ctx: Context<'_, '_, 'c, 'info, InitializeVirtualPoolWithToken2022Ctx<'info>>,
         params: InitializePoolParameters,
+        auth: AuthorizationPayload,
     ) -> Result<()> {
-        instructions::handle_initialize_virtual_pool_with_token2022(ctx, params)
+        instructions::handle_initialize_virtual_pool_with_token2022(ctx, params, auth)
     }
 
     pub fn create_virtual_pool_metadata(
@@ -120,7 +122,11 @@ pub mod dynamic_bonding_curve {
     }
 
     /// TRADING BOTS FUNCTIONS ////
-    pub fn swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> {
+    pub fn swap(
+        ctx: Context<SwapCtx>,
+        params: SwapParameters,
+        auth: AuthorizationPayload,
+    ) -> Result<()> {
         instructions::handle_swap_wrapper(
             ctx,
             SwapParameters2 {
@@ -129,11 +135,16 @@ pub mod dynamic_bonding_curve {
                 swap_mode: SwapMode::ExactIn.into(),
                 ..Default::default()
             },
+            auth,
         )
     }
 
-    pub fn swap2(ctx: Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
-        instructions::handle_swap_wrapper(ctx, params)
+    pub fn swap2(
+        ctx: Context<SwapCtx>,
+        params: SwapParameters2,
+        auth: AuthorizationPayload,
+    ) -> Result<()> {
+        instructions::handle_swap_wrapper(ctx, params, auth)
     }
 
     /// PERMISSIONLESS FUNCTIONS ///

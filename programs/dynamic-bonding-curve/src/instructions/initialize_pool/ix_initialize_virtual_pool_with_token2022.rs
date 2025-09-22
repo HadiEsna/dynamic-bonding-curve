@@ -3,10 +3,13 @@ use super::{max_key, min_key};
 use crate::{
     activation_handler::get_current_point,
     const_pda,
-    constants::seeds::{POOL_PREFIX, TOKEN_VAULT_PREFIX},
-    state::fee::VolatilityTracker,
-    state::{PoolConfig, PoolType, TokenType, VirtualPool},
+    constants::seeds::{AUTHORIZATION_PREFIX, POOL_PREFIX, TOKEN_VAULT_PREFIX},
+    params::authorization::{AuthorizationAction, AuthorizationPayload},
+    state::{
+        fee::VolatilityTracker, AuthorizationNonce, PoolConfig, PoolType, TokenType, VirtualPool,
+    },
     token::update_account_lamports_to_minimum_balance,
+    utils::authorization::verify_admin_authorization,
     EvtInitializePool, PoolError,
 };
 use anchor_lang::prelude::*;
@@ -100,6 +103,15 @@ pub struct InitializeVirtualPoolWithToken2022Ctx<'info> {
     )]
     pub quote_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
+    #[account(
+        init_if_needed,
+        seeds = [AUTHORIZATION_PREFIX, creator.key().as_ref()],
+        bump,
+        payer = payer,
+        space = 8 + AuthorizationNonce::INIT_SPACE,
+    )]
+    pub authorization_nonce: Account<'info, AuthorizationNonce>,
+
     /// Address paying to create the pool. Can be anyone
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -115,7 +127,10 @@ pub struct InitializeVirtualPoolWithToken2022Ctx<'info> {
 pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
     ctx: Context<'_, '_, 'c, 'info, InitializeVirtualPoolWithToken2022Ctx<'info>>,
     params: InitializePoolParameters,
+    auth: AuthorizationPayload,
 ) -> Result<()> {
+    let current_slot = Clock::get()?.slot;
+
     let config = ctx.accounts.config.load()?;
     let token_type_value =
         TokenType::try_from(config.token_type).map_err(|_| PoolError::InvalidTokenType)?;
@@ -151,6 +166,15 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
     )?;
 
     let token_authority = config.get_token_authority()?;
+
+    verify_admin_authorization(
+        &auth,
+        AuthorizationAction::InitializePool,
+        &ctx.accounts.creator.key(),
+        &ctx.accounts.config.key(),
+        current_slot,
+        &mut ctx.accounts.authorization_nonce,
+    )?;
 
     let token_update_authority =
         token_authority.get_update_authority(ctx.accounts.creator.key(), config.fee_claimer.key());

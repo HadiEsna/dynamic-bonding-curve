@@ -765,6 +765,19 @@ dependencies = [
 
 [[package]]
 name = "curve25519-dalek"
+version = "3.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b9fdf9972b2bd6af2d913799d9ebc165ea4d2e65878e329d9c6b372c4491b61"
+dependencies = [
+ "byteorder",
+ "digest 0.9.0",
+ "rand_core 0.5.1",
+ "subtle",
+ "zeroize",
+]
+
+[[package]]
+name = "curve25519-dalek"
 version = "4.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fb8b7c4503de7d6ae7b42ab72a5a59857b4c937ec27a3d4539dba95b5ab2be"
@@ -854,6 +867,7 @@ dependencies = [
  "const-crypto",
  "damm-v2",
  "dynamic-amm",
+ "ed25519-dalek",
  "locker",
  "mpl-token-metadata",
  "num",
@@ -874,6 +888,27 @@ dependencies = [
  "bytemuck",
  "dynamic-bonding-curve",
  "ruint",
+]
+
+[[package]]
+name = "ed25519"
+version = "1.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91cff35c70bba8a626e3185d8cd48cc11b5437e1a5bcd15b9b5fa3c64b6dfee7"
+dependencies = [
+ "signature",
+]
+
+[[package]]
+name = "ed25519-dalek"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c762bae6dcaf24c4c84667b8579785430908723d5c889f469d76a41d59cc7a9d"
+dependencies = [
+ "curve25519-dalek 3.2.0",
+ "ed25519",
+ "sha2 0.9.9",
+ "zeroize",
 ]
 
 [[package]]
@@ -1984,6 +2019,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
+name = "signature"
+version = "1.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74233d3b3b2f6d4b006dc19dee745e73e2a6bfb6f93607cd3b02bd5b00797d7c"
+
+[[package]]
 name = "smallvec"
 version = "1.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2120,7 +2161,7 @@ checksum = "fa1f28fdc4acdf6d1e47eec6fea58e88a650ca08f6a779d34730a616a2a82801"
 dependencies = [
  "bytemuck",
  "bytemuck_derive",
- "curve25519-dalek",
+ "curve25519-dalek 4.1.3",
  "solana-define-syscall",
  "subtle",
  "thiserror 2.0.12",
@@ -2548,7 +2589,7 @@ dependencies = [
  "bs58",
  "bytemuck",
  "bytemuck_derive",
- "curve25519-dalek",
+ "curve25519-dalek 4.1.3",
  "five8_const",
  "getrandom 0.2.10",
  "js-sys",
@@ -2866,7 +2907,7 @@ dependencies = [
  "bincode",
  "bytemuck",
  "bytemuck_derive",
- "curve25519-dalek",
+ "curve25519-dalek 4.1.3",
  "itertools 0.12.1",
  "js-sys",
  "lazy_static",
@@ -3123,7 +3164,7 @@ version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8627184782eec1894de8ea26129c61303f1f0adeed65c20e0b10bc584f09356d"
 dependencies = [
- "curve25519-dalek",
+ "curve25519-dalek 4.1.3",
  "solana-zk-sdk",
  "thiserror 1.0.69",
 ]

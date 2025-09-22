@@ -11,9 +11,13 @@ use std::cmp::{max, min};
 use crate::{
     activation_handler::get_current_point,
     const_pda,
-    constants::seeds::{POOL_PREFIX, TOKEN_VAULT_PREFIX},
+    constants::seeds::{AUTHORIZATION_PREFIX, POOL_PREFIX, TOKEN_VAULT_PREFIX},
+    params::authorization::{AuthorizationAction, AuthorizationPayload},
     process_create_token_metadata,
-    state::{fee::VolatilityTracker, PoolConfig, PoolType, TokenType, VirtualPool},
+    state::{
+        fee::VolatilityTracker, AuthorizationNonce, PoolConfig, PoolType, TokenType, VirtualPool,
+    },
+    utils::authorization::verify_admin_authorization,
     EvtInitializePool, PoolError, ProcessCreateTokenMetadataParams,
 };
 
@@ -110,6 +114,15 @@ pub struct InitializeVirtualPoolWithSplTokenCtx<'info> {
     )]
     pub quote_vault: Box<InterfaceAccount<'info, TokenAccountInterface>>,
 
+    #[account(
+        init_if_needed,
+        seeds = [AUTHORIZATION_PREFIX, creator.key().as_ref()],
+        bump,
+        payer = payer,
+        space = 8 + AuthorizationNonce::INIT_SPACE,
+    )]
+    pub authorization_nonce: Account<'info, AuthorizationNonce>,
+
     /// CHECK: mint_metadata
     #[account(mut)]
     pub mint_metadata: UncheckedAccount<'info>,
@@ -134,7 +147,10 @@ pub struct InitializeVirtualPoolWithSplTokenCtx<'info> {
 pub fn handle_initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
     ctx: Context<'_, '_, 'c, 'info, InitializeVirtualPoolWithSplTokenCtx<'info>>,
     params: InitializePoolParameters,
+    auth: AuthorizationPayload,
 ) -> Result<()> {
+    let current_slot = Clock::get()?.slot;
+
     let config = ctx.accounts.config.load()?;
     let initial_base_supply = config.get_initial_base_supply()?;
 
@@ -148,6 +164,14 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
     let InitializePoolParameters { name, symbol, uri } = params;
 
     let token_authority = config.get_token_authority()?;
+    verify_admin_authorization(
+        &auth,
+        AuthorizationAction::InitializePool,
+        &ctx.accounts.creator.key(),
+        &ctx.accounts.config.key(),
+        current_slot,
+        &mut ctx.accounts.authorization_nonce,
+    )?;
     // create token metadata
     process_create_token_metadata(ProcessCreateTokenMetadataParams {
         system_program: ctx.accounts.system_program.to_account_info(),
