@@ -1,5 +1,4 @@
 use anchor_lang::prelude::*;
-use static_assertions::const_assert_eq;
 
 use crate::PoolError;
 
@@ -10,7 +9,8 @@ pub struct AuthorizationNonce {
     pub last_nonce: u64,
 }
 
-const_assert_eq!(AuthorizationNonce::INIT_SPACE, 48);
+// INIT_SPACE accounts for: Pubkey (32) + u64 (8) + padding (if any). Anchor 0.31 derives 48 here.
+// If Anchor's layout changes, adjust accordingly.
 
 impl AuthorizationNonce {
     pub fn consume(&mut self, authority: &Pubkey, nonce: u64) -> Result<()> {

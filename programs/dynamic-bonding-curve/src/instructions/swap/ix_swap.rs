@@ -97,10 +97,10 @@ pub struct SwapCtx<'info> {
     pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
 
     /// The user performing the swap
+    #[account(mut)]
     pub payer: Signer<'info>,
 
     #[account(
-        mut,
         init_if_needed,
         seeds = [AUTHORIZATION_PREFIX, payer.key().as_ref()],
         bump,
@@ -118,6 +118,9 @@ pub struct SwapCtx<'info> {
     /// referral token account
     #[account(mut)]
     pub referral_token_account: Option<Box<InterfaceAccount<'info, TokenAccount>>>,
+
+    /// System program is required when using init_if_needed
+    pub system_program: Program<'info, System>,
 }
 
 impl<'info> SwapCtx<'info> {

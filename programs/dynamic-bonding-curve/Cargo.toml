@@ -18,7 +18,7 @@ local = []
 idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 
 [dependencies]
-anchor-lang = { workspace = true, features = ["event-cpi"] }
+anchor-lang = { workspace = true, features = ["event-cpi", "init-if-needed"] }
 anchor-spl = { workspace = true, features = [] }
 const-crypto = "0.3.0"
 bytemuck = { workspace = true, features = ["min_const_generics"] }
@@ -33,6 +33,7 @@ dynamic-amm = { path = "../../libs/dynamic-amm" }
 damm-v2 = { path = "../../libs/damm-v2" }
 locker = { path = "../../libs/locker" }
 ed25519-dalek = { version = "1", default-features = false, features = ["u64_backend"] }
+curve25519-dalek = { version = "3", default-features = false, features = ["alloc", "u64_backend"] }
 
 [dev-dependencies]
 proptest = "1.2.0"
