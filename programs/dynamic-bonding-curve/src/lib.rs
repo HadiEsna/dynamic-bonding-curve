@@ -23,6 +23,8 @@ pub mod curve;
 pub mod tests;
 
 pub mod params;
+// Bring in AuthorizationPayload type used in several instruction handlers
+use crate::params::authorization::AuthorizationPayload;
 
 declare_id!("dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN");
 
